@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* Mobil cihazlarda arama ve girdi alanlarına odaklanıldığında zoom yapılmasını engeller */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
