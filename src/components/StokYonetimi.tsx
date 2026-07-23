@@ -88,6 +88,7 @@ export default function StokYonetimi({
   // Stok yeni kalem form
   const [yeniAd, setYeniAd] = useState("");
   const [yeniMiktar, setYeniMiktar] = useState("0");
+  const [yeniFiyat, setYeniFiyat] = useState("");
 
   // Stok artırım form
   const [artisAdet, setArtisAdet] = useState("1");
@@ -107,11 +108,30 @@ export default function StokYonetimi({
     setEditValues((prev) => { const n = { ...prev }; delete n[k.id]; return n; });
   };
 
+  // Yeni Stok Kalemi Eklendiğinde Hem Stoğa Hem Kataloğa Ekle
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!yeniAd.trim()) return;
-    onAddKalem(yeniAd.trim(), parseInt(yeniMiktar, 10) || 0);
-    setYeniAd(""); setYeniMiktar("0"); setAddModalOpen(false);
+    const ad = yeniAd.trim();
+    const miktar = parseInt(yeniMiktar, 10) || 0;
+    const fiyat = parseFloat(yeniFiyat) || 0;
+
+    // 1. Stoğa ekle
+    onAddKalem(ad, miktar);
+
+    // 2. Kataloğa da otomatik ekle (fiyat bilgisiyle)
+    const existingParca = parcalar.find((p) => p.ad.toLowerCase() === ad.toLowerCase());
+    onAddOrEditParca({
+      id: existingParca ? existingParca.id : undefined,
+      ad: ad,
+      fiyat: fiyat,
+      stok: miktar,
+    });
+
+    setYeniAd("");
+    setYeniMiktar("0");
+    setYeniFiyat("");
+    setAddModalOpen(false);
   };
 
   const handleIncreaseSubmit = (e: React.FormEvent) => {
@@ -163,9 +183,10 @@ export default function StokYonetimi({
 
     return (
       <div key={k.id} className={`flex items-center gap-2 rounded-xl border p-3 shadow-sm transition ${stil.bg} ${stil.border}`}>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-slate-800 text-sm truncate">{k.ad}</p>
-          <div className={`inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full border text-[9px] font-bold ${stil.badge}`}>
+        {/* Isim alanı - tam görünüm için break-words ve leading-snug eklendi */}
+        <div className="flex-1 min-w-0 pr-1">
+          <p className="font-semibold text-slate-800 text-sm leading-snug break-words">{k.ad}</p>
+          <div className={`inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full border text-[9px] font-bold ${stil.badge}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${stil.dot}`} />
             {stil.label}
           </div>
@@ -298,8 +319,8 @@ export default function StokYonetimi({
               return (
                 <div key={p.id} className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition">
                   <div className="flex justify-between items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-slate-800 text-sm truncate">{p.ad}</h3>
+                    <div className="flex-1 min-w-0 pr-1">
+                      <h3 className="font-semibold text-slate-800 text-sm leading-snug break-words">{p.ad}</h3>
                       <span className="text-emerald-600 font-bold font-mono text-sm mt-0.5 block">
                         {p.fiyat.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
                       </span>
@@ -351,8 +372,8 @@ export default function StokYonetimi({
       {subTab === "stok" ? (
         <button
           onClick={() => setAddModalOpen(true)}
-          className="absolute bottom-20 right-6 h-12 w-12 rounded-full bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20 flex items-center justify-center transition active:scale-95"
-          title="Yeni Stok Kalemi Ekle"
+          className="fixed bottom-20 right-6 h-12 w-12 rounded-full bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20 flex items-center justify-center transition active:scale-95 z-40"
+          title="Yeni Stok & Katalog Ürünü Ekle"
         >
           <PlusCircle className="h-6 w-6" />
         </button>
@@ -364,30 +385,39 @@ export default function StokYonetimi({
             setParcaFiyat("");
             setKatalogModalOpen(true);
           }}
-          className="absolute bottom-20 right-6 h-12 w-12 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 flex items-center justify-center transition active:scale-95"
+          className="fixed bottom-20 right-6 h-12 w-12 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 flex items-center justify-center transition active:scale-95 z-40"
           title="Kataloğa Yeni Ürün Ekle"
         >
           <Plus className="h-6 w-6" />
         </button>
       )}
 
-      {/* Modal: Yeni Stok Kalemi Ekle */}
+      {/* Modal: Yeni Stok Kalemi & Katalog Ürünü Ekle */}
       {addModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800 text-[15px]">Yeni Stok Kalemi</h3>
+              <div>
+                <h3 className="font-bold text-slate-800 text-[15px]">Yeni Stok ve Ürün Ekle</h3>
+                <p className="text-[11px] text-slate-400 font-medium">Hem stoğa hem ürün kataloğuna eklenir</p>
+              </div>
               <button onClick={() => setAddModalOpen(false)} className="p-1 rounded-full hover:bg-slate-200 text-slate-400 transition"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleAddSubmit} className="p-4 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Kalem Adı</label>
-                <input type="text" required placeholder="Örn: Motor, Kısıcı..."
+                <label className="block text-xs font-bold text-slate-600 mb-1">Ürün / Kalem Adı</label>
+                <input type="text" required placeholder="Örn: Motor, Musluk, Kısıcı..."
                   value={yeniAd} onChange={(e) => setYeniAd(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Başlangıç Miktarı</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Satış Fiyatı (TL)</label>
+                <input type="number" required min={0} step="0.01" placeholder="Örn: 450"
+                  value={yeniFiyat} onChange={(e) => setYeniFiyat(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Başlangıç Miktarı (Stok Adedi)</label>
                 <input type="number" required min={0} value={yeniMiktar}
                   onChange={(e) => setYeniMiktar(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
@@ -396,7 +426,7 @@ export default function StokYonetimi({
                 <button type="button" onClick={() => setAddModalOpen(false)}
                   className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-semibold transition">İptal</button>
                 <button type="submit"
-                  className="flex-1 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-semibold transition">Ekle</button>
+                  className="flex-1 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-semibold transition">Stoğa ve Kataloğa Ekle</button>
               </div>
             </form>
           </div>
