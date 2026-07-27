@@ -35,27 +35,59 @@ export default function MusteriListesi({
 
   const handlePickContact = async () => {
     try {
-      // Android'in kendi kişi seçici ekranını aç
+      // Önce izin iste
+      const permResult = await Contacts.requestPermissions();
+      if (permResult.contacts !== "granted") {
+        alert(
+          "Rehbere erişim izni verilmedi.\n\n" +
+          "Telefon Ayarları → Uygulamalar → TekApp → İzinler → Kişiler bölümünden izin veriniz."
+        );
+        return;
+      }
+
+      // pickContact metodunu dene (Android sistemi kişi seçiciyi açar)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await (Contacts as any).pickContact({
-        projection: { name: true, phones: true }
-      });
-      const contact = result?.contact;
-      if (contact) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const ad = contact.displayName || contact.name?.display || contact.name?.given || "";
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const telefon = contact.phoneNumbers?.[0]?.number || contact.phones?.[0]?.number || "";
-        setAd(ad);
-        setTelefon(telefon);
+      const ContactsAny = Contacts as any;
+      if (typeof ContactsAny.pickContact === "function") {
+        const result = await ContactsAny.pickContact({
+          projection: { name: true, phones: true }
+        });
+        const contact = result?.contact;
+        if (contact) {
+          const isim = contact.displayName || contact.name?.display || contact.name?.given || "";
+          const tel = contact.phoneNumbers?.[0]?.number || contact.phones?.[0]?.number || "";
+          setAd(isim);
+          setTelefon(tel.replace(/\s+/g, "")); // boşlukları temizle
+        }
+      } else {
+        // pickContact yoksa getContacts ile listeyi çek
+        const { contacts } = await Contacts.getContacts({
+          projection: { name: true, phones: true }
+        });
+        setRealContacts(
+          contacts
+            .filter((c) => c.phoneNumbers && c.phoneNumbers.length > 0)
+            .map((c) => ({
+              ad: c.displayName || c.name?.display || c.name?.given || "(İsimsiz)",
+              telefon: c.phoneNumbers?.[0]?.number?.replace(/\s+/g, "") || "",
+            }))
+        );
+        setContactSearch("");
+        setVirtualContactsOpen(true);
       }
     } catch (err) {
       console.error("Rehber hatası:", err);
-      // Kullanıcı vazgeçtiyse veya iptal ettiyse sessizce geç
-      if (String(err).includes("cancel") || String(err).includes("Cancel")) return;
-      alert("Rehbere erişilemedi: " + (err instanceof Error ? err.message : String(err)));
+      const msg = String(err);
+      // Kullanıcı iptal ettiyse sessizce geç
+      if (
+        msg.toLowerCase().includes("cancel") ||
+        msg.toLowerCase().includes("dismissed") ||
+        msg.toLowerCase().includes("user denied")
+      ) return;
+      alert("Rehbere erişilemedi: " + (err instanceof Error ? err.message : msg));
     }
   };
+
 
   const filtered = musteriler.filter(
     (m) =>
