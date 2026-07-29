@@ -132,15 +132,18 @@ export default function YeniBakimKaydi({
     }
 
     // Prepare JSON parts list string
-    const partsToSave = secilenParcalar.map((item) => {
-      const p = parcalar.find((x) => x.id === item.parcaId)!;
-      return {
-        id: p.id,
-        ad: p.ad,
-        fiyat: p.fiyat,
-        adet: item.adet
-      };
-    });
+    const partsToSave = secilenParcalar
+      .map((item) => {
+        const p = parcalar.find((x) => x.id === item.parcaId);
+        if (!p) return null;
+        return {
+          id: p.id,
+          ad: p.ad,
+          fiyat: p.fiyat,
+          adet: item.adet
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
 
     const calculatedTotal = calculateTotal();
     const finalTotal = ozelFiyat && !isNaN(Number(ozelFiyat)) ? Number(ozelFiyat) : calculatedTotal;

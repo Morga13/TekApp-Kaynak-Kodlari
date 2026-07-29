@@ -161,7 +161,7 @@ export default function App() {
     try {
       const updated = await deleteMusteri(id);
       setMusteriler(updated);
-      setBakimlar(bakimlar.filter(b => b.musteri_id !== id));
+      setBakimlar(prev => prev.filter(b => b.musteri_id !== id));
       if (selectedMusteriId === id) setSelectedMusteriId(null);
     } catch (err: any) {
       console.error(err);
@@ -370,7 +370,7 @@ export default function App() {
           onIncreaseStock={handleIncreaseStock}
           onAddKalem={handleAddStokKalemi}
           onDeleteKalem={handleDeleteStokKalemi}
-          onRefresh={() => getStok().then(setStokKalemleri)}
+          onRefresh={() => getStok().then(setStokKalemleri).catch((err) => console.error('Stok yenileme hatası:', err))}
           onAddOrEditParca={handleAddOrEditParca}
           onDeleteParca={handleDeleteParca}
         />

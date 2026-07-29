@@ -1,4 +1,5 @@
 import React from "react";
+import { Capacitor } from '@capacitor/core';
 import { Musteri, Bakim, DeğişenParça } from "../types";
 import { ArrowLeft, Phone, MapPin, FileText, Calendar, Trash2, ShieldAlert, Plus, MessageSquare } from "lucide-react";
 
@@ -45,6 +46,14 @@ export default function MusteriDetay({
     }
   };
 
+  const safeOpenUrl = (url: string) => {
+    if (Capacitor.isNativePlatform()) {
+      window.location.href = url;
+    } else {
+      window.open(url, '_blank');
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-slate-50">
       {/* Profil Header */}
@@ -54,7 +63,7 @@ export default function MusteriDetay({
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="h-11 w-11 rounded-full bg-sky-400 text-white font-bold text-lg flex items-center justify-center">
-            {musteri.ad[0].toUpperCase()}
+            {musteri.ad ? musteri.ad[0]?.toUpperCase() || '?' : '?'}
           </div>
           <div>
             <h2 className="font-bold text-base text-slate-100">{musteri.ad}</h2>
@@ -80,7 +89,7 @@ export default function MusteriDetay({
               </div>
               <button
                 onClick={() => {
-                  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(musteri.adres)}`, "_blank");
+                  safeOpenUrl(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(musteri.adres)}`);
                 }}
                 className="text-[10px] font-bold text-sky-300 hover:text-sky-200 bg-sky-500/20 px-2 py-0.5 rounded-md border border-sky-400/30 shrink-0 transition"
               >
@@ -143,7 +152,7 @@ export default function MusteriDetay({
                           if (!rawPhone.startsWith("90") && rawPhone.length === 10) rawPhone = "90" + rawPhone;
                           const parcaListStr = parcalar.map(p => `${p.ad} (x${p.adet || 1})`).join(", ");
                           const msg = `Sayın ${musteri.ad},\n${b.tarih} tarihinde cihazınıza aşağıdaki bakım yapılmıştır:\n\nDeğişen Parçalar: ${parcaListStr}\nToplam Tutar: ${b.toplam} TL (${b.odendi === 1 ? 'Ödendi' : 'Ödeme Bekliyor'}).\n\nBizi tercih ettiğiniz için teşekkür ederiz.`;
-                          window.open(`https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+                          safeOpenUrl(`https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`);
                         }}
                         className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md text-[10px] font-bold transition flex items-center gap-1"
                         title="WhatsApp Servis Fişi Gönder"

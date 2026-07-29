@@ -5,7 +5,11 @@ import { Musteri, Parca, Bakim, StokKalemi } from "../types";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Güvenli başlatma: Boş URL/Key ile createClient çağrısı crash verebilir
+export const supabase = createClient(
+  SUPABASE_URL || "https://placeholder.supabase.co",
+  SUPABASE_ANON_KEY || "placeholder-key"
+);
 
 export const isSupabaseConfigured = () =>
   Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
@@ -106,10 +110,20 @@ export async function getBakimlar(): Promise<Bakim[]> {
 }
 
 export async function saveBakim(bakim: Omit<Bakim, "id">): Promise<Bakim[]> {
+  // Güvenli JSON parse: parcalar zaten obje ise tekrar parse etme
+  let parcalarData: unknown;
+  try {
+    parcalarData = typeof bakim.parcalar === "string"
+      ? JSON.parse(bakim.parcalar)
+      : bakim.parcalar;
+  } catch {
+    parcalarData = [];
+  }
+
   const { error } = await supabase.from("bakimlar").insert({
     musteri_id: bakim.musteri_id,
     tarih: bakim.tarih,
-    parcalar: JSON.parse(bakim.parcalar),
+    parcalar: parcalarData,
     toplam: bakim.toplam,
     not: bakim.not,
     odendi: bakim.odendi,
@@ -141,35 +155,52 @@ export async function importAllData(data: {
   parcalar: Parca[];
   bakimlar: Bakim[];
 }) {
+  // Müşteriler
   if (data.musteriler?.length) {
-    await supabase.from("musteriler").delete().neq("id", 0);
-    await supabase.from("musteriler").insert(
+    const { error: delErr } = await supabase.from("musteriler").delete().neq("id", 0);
+    if (delErr) throw new Error("Müşteri verileri silinirken hata: " + delErr.message);
+    const { error: insErr } = await supabase.from("musteriler").insert(
       data.musteriler.map((m) => ({
         ad: m.ad,
-        telefon: m.telefon,
-        adres: m.adres,
-        not: m.not,
+        telefon: m.telefon || "",
+        adres: m.adres || "",
+        not: m.not || "",
       }))
     );
+    if (insErr) throw new Error("Müşteri verileri eklenirken hata: " + insErr.message);
   }
+  // Parçalar
   if (data.parcalar?.length) {
-    await supabase.from("parcalar").delete().neq("id", 0);
-    await supabase
+    const { error: delErr } = await supabase.from("parcalar").delete().neq("id", 0);
+    if (delErr) throw new Error("Parça verileri silinirken hata: " + delErr.message);
+    const { error: insErr } = await supabase
       .from("parcalar")
       .insert(data.parcalar.map((p) => ({ ad: p.ad, fiyat: p.fiyat, stok: p.stok || 0 })));
+    if (insErr) throw new Error("Parça verileri eklenirken hata: " + insErr.message);
   }
+  // Bakımlar
   if (data.bakimlar?.length) {
-    await supabase.from("bakimlar").delete().neq("id", 0);
-    await supabase.from("bakimlar").insert(
-      data.bakimlar.map((b) => ({
-        musteri_id: b.musteri_id,
-        tarih: b.tarih,
-        parcalar: JSON.parse(b.parcalar),
-        toplam: b.toplam,
-        not: b.not,
-        odendi: b.odendi,
-      }))
+    const { error: delErr } = await supabase.from("bakimlar").delete().neq("id", 0);
+    if (delErr) throw new Error("Bakım verileri silinirken hata: " + delErr.message);
+    const { error: insErr } = await supabase.from("bakimlar").insert(
+      data.bakimlar.map((b) => {
+        let parcalarData: unknown;
+        try {
+          parcalarData = typeof b.parcalar === "string" ? JSON.parse(b.parcalar) : b.parcalar;
+        } catch {
+          parcalarData = [];
+        }
+        return {
+          musteri_id: b.musteri_id,
+          tarih: b.tarih,
+          parcalar: parcalarData,
+          toplam: b.toplam,
+          not: b.not || "",
+          odendi: b.odendi || 0,
+        };
+      })
     );
+    if (insErr) throw new Error("Bakım verileri eklenirken hata: " + insErr.message);
   }
 }
 

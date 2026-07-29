@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Musteri } from "../types";
 import { Search, Plus, Phone, MapPin, FileText, Edit2, Trash2, Eye, X, Smartphone, MessageSquare } from "lucide-react";
 import { Contacts } from "@capacitor-community/contacts";
-
+import { Capacitor } from '@capacitor/core';
 
 
 interface MusteriListesiProps {
@@ -24,6 +24,14 @@ export default function MusteriListesi({
   const [contactSearch, setContactSearch] = useState("");
   const [realContacts, setRealContacts] = useState<{ad: string, telefon: string}[]>([]);
   
+  const safeOpenUrl = (url: string) => {
+    if (Capacitor.isNativePlatform()) {
+      window.location.href = url;
+    } else {
+      window.open(url, '_blank');
+    }
+  };
+
   // Form states
   const [editId, setEditId] = useState<number | undefined>(undefined);
   const [ad, setAd] = useState("");
@@ -229,7 +237,7 @@ export default function MusteriListesi({
                       let raw = m.telefon.replace(/\D/g, "");
                       if (raw.startsWith("0")) raw = "9" + raw;
                       if (!raw.startsWith("90") && raw.length === 10) raw = "90" + raw;
-                      window.open(`https://wa.me/${raw}`, "_blank");
+                      safeOpenUrl(`https://wa.me/${raw}`);
                     }}
                     className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
                     title="WhatsApp Mesaj Gönder"
@@ -240,7 +248,7 @@ export default function MusteriListesi({
                 {m.adres && (
                   <button
                     onClick={() => {
-                      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.adres)}`, "_blank");
+                      safeOpenUrl(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.adres)}`);
                     }}
                     className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg transition"
                     title="Google Maps Yol Tarifi"

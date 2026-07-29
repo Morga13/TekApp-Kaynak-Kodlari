@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Musteri, Bakim } from "../types";
 import { Bell, Calendar, Phone, MapPin, Wrench, MessageSquare, Search, AlertCircle, Clock, CheckCircle2 } from "lucide-react";
+import { Capacitor } from '@capacitor/core';
 
 interface BakimHatirlaticiProps {
   musteriler: Musteri[];
@@ -78,15 +79,25 @@ export default function BakimHatirlatici({
     const tarihText = item.latestBakim ? item.latestBakim.tarih : "Henüz bakım yapılmadı";
     const msg = `Sayın ${item.musteri.ad},\nTekApp Su Arıtma cihazınızın bakım zamanı gelmiştir. En son servis tarihiniz: ${tarihText}.\nFiltre değişimi ve kontrol için randevu oluşturmak ister misiniz?`;
 
-    window.open(`https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+    const whatsappUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
+    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
+      window.location.href = whatsappUrl;
+    } else {
+      window.open(whatsappUrl, '_blank');
+    }
   };
 
-  const handleOpenMaps = (adres: string) => {
-    if (!adres.trim()) {
+  const handleOpenMaps = (adres?: string) => {
+    if (!adres || !adres.trim()) {
       alert("Müşterinin adres bilgisi bulunmuyor.");
       return;
     }
-    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(adres)}`, "_blank");
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(adres)}`;
+    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
+      window.location.href = url;
+    } else {
+      window.open(url, '_blank');
+    }
   };
 
   return (
