@@ -24,7 +24,7 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 🌙 Koyu Mod (Dark Mode) Stil Kuralları */
+/* 🌙 Koyu Mod (Dark Mode) Genel Stil Kuralları */
 html.dark {
   color-scheme: dark;
 }
@@ -65,12 +65,62 @@ html.dark .text-slate-500 {
 html.dark input,
 html.dark select,
 html.dark textarea {
-  background-color: #1e293b !important;
-  color: #f8fafc !important;
+  background-color: #0f172a !important;
   border-color: #334155 !important;
 }
 
 html.dark nav {
   background-color: #1e293b !important;
   border-top-color: #334155 !important;
+}
+
+/* 🔴 Stok Durumu: KRİTİK (Kırmızı) — Mat & Yüksek Kontrastlı Koyu Mod */
+html.dark .bg-rose-50 {
+  background-color: #1c1012 !important; /* Mat koyu kırmızı zemin (gözü yormaz) */
+}
+html.dark .border-rose-200 {
+  border-color: #4c1d24 !important; /* Yumuşak bordo çerçeve */
+}
+html.dark .text-rose-700,
+html.dark .text-rose-600 {
+  color: #f87171 !important; /* Mat parlak kırmızı (okunabilir, patlamaz) */
+}
+html.dark .bg-rose-100 {
+  background-color: #381217 !important;
+  color: #fca5a5 !important;
+  border-color: #5c1d27 !important;
+}
+
+/* 🟡 Stok Durumu: DÜŞÜK (Sarı/Kehribar) — Mat & Yüksek Kontrastlı Koyu Mod */
+html.dark .bg-amber-50 {
+  background-color: #1c160c !important; /* Mat koyu amber zemin */
+}
+html.dark .border-amber-200 {
+  border-color: #452c0e !important; /* Yumuşak kehribar çerçeve */
+}
+html.dark .text-amber-700,
+html.dark .text-amber-600 {
+  color: #fbbf24 !important; /* Mat parlak sarı (okunabilir, patlamaz) */
+}
+html.dark .bg-amber-100 {
+  background-color: #36240d !important;
+  color: #fde047 !important;
+  border-color: #543914 !important;
+}
+
+/* 🟢 Stok Durumu: YETERLİ (Yeşil) — Mat & Yüksek Kontrastlı Koyu Mod */
+html.dark .bg-emerald-50 {
+  background-color: #0c1a15 !important; /* Mat koyu yeşil zemin */
+}
+html.dark .border-emerald-200 {
+  border-color: #164e39 !important; /* Yumuşak yeşil çerçeve */
+}
+html.dark .text-emerald-700,
+html.dark .text-emerald-600 {
+  color: #34d399 !important; /* Mat parlak yeşil (okunabilir, patlamaz) */
+}
+html.dark .bg-emerald-100 {
+  background-color: #14382a !important;
+  color: #6ee7b7 !important;
+  border-color: #1e5c45 !important;
 }
