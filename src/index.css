@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Mobil cihazlarda arama ve girdi alanlarına odaklanıldığında zoom yapılmasını engeller */
 @media screen and (max-width: 768px) {
   input, select, textarea {
@@ -20,4 +22,55 @@
 html, body {
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* 🌙 Koyu Mod (Dark Mode) Stil Kuralları */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+html.dark .bg-white {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html.dark .bg-slate-50 {
+  background-color: #0f172a !important;
+}
+
+html.dark .bg-slate-100 {
+  background-color: #334155 !important;
+}
+
+html.dark .border-slate-100,
+html.dark .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+html.dark .text-slate-800,
+html.dark .text-slate-700 {
+  color: #f1f5f9 !important;
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+html.dark nav {
+  background-color: #1e293b !important;
+  border-top-color: #334155 !important;
 }

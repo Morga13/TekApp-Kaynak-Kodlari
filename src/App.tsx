@@ -30,6 +30,7 @@ import StokYonetimi from "./components/StokYonetimi";
 import Ayarlar from "./components/Ayarlar";
 
 import { Users, PlusCircle, Settings, Loader2, Package } from "lucide-react";
+import { initTheme } from "./utils/theme";
 
 type TabType = "musteriler" | "yeni-bakim" | "stok" | "ayarlar";
 
@@ -112,6 +113,10 @@ export default function App() {
     }
     setSelectedMusteriId(id);
   };
+
+  useEffect(() => {
+    return initTheme();
+  }, []);
 
   useEffect(() => {
     loadFromCache();

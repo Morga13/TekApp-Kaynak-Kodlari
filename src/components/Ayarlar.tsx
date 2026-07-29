@@ -1,7 +1,8 @@
 import React, { useRef, useState, useMemo } from "react";
-import { Upload, Download, TrendingUp, CreditCard, ChevronDown, ChevronUp, CheckCircle2, Calendar, PackageCheck, Layers, Database } from "lucide-react";
+import { Upload, Download, TrendingUp, CreditCard, ChevronDown, ChevronUp, CheckCircle2, Calendar, PackageCheck, Layers, Database, Sun, Moon, Smartphone } from "lucide-react";
 import { Musteri, Parca, Bakim } from "../types";
 import { COMPOSITE_PARTS_MAPPING } from "../db/stok";
+import { getStoredTheme, applyTheme, ThemeMode } from "../utils/theme";
 
 interface AyarlarProps {
   musteriler?: Musteri[];
@@ -40,6 +41,12 @@ export default function Ayarlar({
   const [loading, setLoading] = useState(false);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<"ciro" | "odeme" | "yedek">("ciro");
+  const [themeMode, setThemeMode] = useState<ThemeMode>(getStoredTheme);
+
+  const handleSelectTheme = (mode: ThemeMode) => {
+    setThemeMode(mode);
+    applyTheme(mode);
+  };
 
   // Trigger Local Download of JSON Backup file
   const handleExport = () => {
@@ -411,10 +418,64 @@ export default function Ayarlar({
         </div>
       )}
 
-      {/* 3. VERİ YÖNETİMİ (YEDEKLER) */}
+      {/* 3. VERİ YÖNETİMİ & TEMA */}
       {activeSubTab === "yedek" && (
-        <div className="space-y-3 animate-fade-in">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Veri Yönetimi</h3>
+        <div className="space-y-4 animate-fade-in">
+          {/* Tema Seçim Kartı */}
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Görünüm & Tema</h3>
+            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-xs">
+              <div>
+                <span className="font-bold text-slate-800 text-sm block">Uygulama Teması</span>
+                <span className="text-xs text-slate-400 mt-0.5 block">
+                  Cihazınızın moduna (Koyu/Açık) otomatik uyum sağlasın veya sabit bir tema seçin.
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleSelectTheme("system")}
+                  className={`py-2.5 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1.5 border active:scale-95 cursor-pointer ${
+                    themeMode === "system"
+                      ? "bg-sky-50 border-sky-300 text-sky-600 shadow-xs"
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                  }`}
+                >
+                  <Smartphone className="h-4 w-4" />
+                  <span>Cihaz Teması</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectTheme("light")}
+                  className={`py-2.5 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1.5 border active:scale-95 cursor-pointer ${
+                    themeMode === "light"
+                      ? "bg-amber-50 border-amber-300 text-amber-600 shadow-xs"
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                  }`}
+                >
+                  <Sun className="h-4 w-4" />
+                  <span>Açık Mod</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectTheme("dark")}
+                  className={`py-2.5 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1.5 border active:scale-95 cursor-pointer ${
+                    themeMode === "dark"
+                      ? "bg-indigo-50 border-indigo-300 text-indigo-600 shadow-xs"
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                  }`}
+                >
+                  <Moon className="h-4 w-4" />
+                  <span>Koyu Mod</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1 pt-1">Veri Yönetimi</h3>
           
           {/* Export Card */}
           <button
