@@ -87,8 +87,14 @@ export default function Ayarlar({
         const text = event.target?.result as string;
         const backup = JSON.parse(text);
 
-        if (!backup.musteriler || !backup.parcalar || !backup.bakimlar) {
-          throw new Error("Geçersiz dosya yapısı. Yedek dosyası 'musteriler', 'parcalar' ve 'bakimlar' verilerini içermelidir.");
+        if (
+          !backup ||
+          typeof backup !== "object" ||
+          !Array.isArray(backup.musteriler) ||
+          !Array.isArray(backup.parcalar) ||
+          !Array.isArray(backup.bakimlar)
+        ) {
+          throw new Error("Geçersiz dosya yapısı. Yedek dosyası 'musteriler', 'parcalar' ve 'bakimlar' dizilerini içermelidir.");
         }
 
         onImportData({

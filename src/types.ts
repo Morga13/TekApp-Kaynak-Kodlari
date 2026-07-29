@@ -23,12 +23,15 @@ export interface Bakim {
   odendi: number; // 1: Ödendi, 0: Ödenmedi
 }
 
-export interface DeğişenParça {
+export interface DegisenParca {
   id: number;
   ad: string;
   fiyat: number;
   adet: number;
 }
+
+// Geriye dönük uyumluluk aliası
+export type DeğişenParça = DegisenParca;
 
 export interface StokKalemi {
   id: number;

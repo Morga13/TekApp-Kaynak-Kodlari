@@ -7,3 +7,17 @@
   }
 }
 
+/* iOS Safe Area Yardımcı Sınıfları */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 16px);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+/* Smooth Scrolling */
+html, body {
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}

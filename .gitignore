@@ -29,8 +29,3 @@ ios/
 
 # Backup folders
 src_backup*
-
-# Environment variables (API keys)
-.env
-.env.local
-.env.production

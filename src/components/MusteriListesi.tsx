@@ -97,11 +97,16 @@ export default function MusteriListesi({
   };
 
 
-  const filtered = musteriler.filter(
-    (m) =>
-      m.ad.toLowerCase().includes(search.toLowerCase()) ||
-      (m.telefon && m.telefon.includes(search))
-  );
+  const searchLower = search.toLocaleLowerCase("tr-TR");
+
+  const filtered = React.useMemo(() => {
+    if (!searchLower.trim()) return musteriler;
+    return musteriler.filter(
+      (m) =>
+        m.ad.toLocaleLowerCase("tr-TR").includes(searchLower) ||
+        (m.telefon && m.telefon.includes(searchLower))
+    );
+  }, [musteriler, searchLower]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,7 +244,7 @@ export default function MusteriListesi({
                       if (!raw.startsWith("90") && raw.length === 10) raw = "90" + raw;
                       safeOpenUrl(`https://wa.me/${raw}`);
                     }}
-                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                    className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg transition active:scale-95"
                     title="WhatsApp Mesaj Gönder"
                   >
                     <MessageSquare className="h-4 w-4" />

@@ -172,9 +172,13 @@ export default function StokYonetimi({
     return { ...g, items };
   });
 
-  const filteredParcalar = parcalar.filter((p) =>
-    p.ad.toLowerCase().includes(searchKatalog.toLowerCase())
-  );
+  const searchKatalogLower = searchKatalog.toLocaleLowerCase("tr-TR");
+  const filteredParcalar = React.useMemo(() => {
+    if (!searchKatalogLower.trim()) return parcalar;
+    return parcalar.filter((p) =>
+      p.ad.toLocaleLowerCase("tr-TR").includes(searchKatalogLower)
+    );
+  }, [parcalar, searchKatalogLower]);
 
   const renderKalem = (k: StokKalemi) => {
     const stil = stokStil(k.ad, k.miktar);
