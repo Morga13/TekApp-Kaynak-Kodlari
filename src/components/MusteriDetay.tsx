@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Capacitor } from '@capacitor/core';
 import { Musteri, Bakim, DeğişenParça } from "../types";
-import { ArrowLeft, Phone, MapPin, FileText, Calendar, Trash2, ShieldAlert, Plus, MessageSquare } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, FileText, Calendar, Trash2, ShieldAlert, Plus, MessageSquare, Bell, X, Clock, CalendarCheck } from "lucide-react";
 
 interface MusteriDetayProps {
   musteriId: number;
@@ -11,6 +11,51 @@ interface MusteriDetayProps {
   onDeleteBakim: (id: number) => void;
   onNewBakimClick: (id: number) => void;
   onUpdateOdemeDurumu: (id: number, odendi: number) => void;
+}
+
+// Hatırlatıcı verilerini localStorage'dan oku/yaz
+const HATIRLATICI_KEY = "tekapp_bakim_hatirlatici";
+
+function getHatirlaticilar(): Record<number, string> {
+  try {
+    const data = localStorage.getItem(HATIRLATICI_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+}
+
+function setHatirlatici(musteriId: number, tarih: string) {
+  const all = getHatirlaticilar();
+  all[musteriId] = tarih;
+  try {
+    localStorage.setItem(HATIRLATICI_KEY, JSON.stringify(all));
+  } catch { /* ignore */ }
+}
+
+function silHatirlatici(musteriId: number) {
+  const all = getHatirlaticilar();
+  delete all[musteriId];
+  try {
+    localStorage.setItem(HATIRLATICI_KEY, JSON.stringify(all));
+  } catch { /* ignore */ }
+}
+
+function formatTarih(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+  } catch {
+    return dateStr;
+  }
+}
+
+function kalanGun(dateStr: string): number {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 export default function MusteriDetay({
@@ -24,6 +69,16 @@ export default function MusteriDetay({
 }: MusteriDetayProps) {
   const musteri = musteriler.find((m) => m.id === musteriId);
   const mBakimlar = bakimlar.filter((b) => b.musteri_id === musteriId);
+
+  // Hatırlatıcı state
+  const [hatirlaticiModalOpen, setHatirlaticiModalOpen] = useState(false);
+  const [ozelTarih, setOzelTarih] = useState("");
+  const [aktifHatirlatici, setAktifHatirlatici] = useState<string | null>(null);
+
+  useEffect(() => {
+    const all = getHatirlaticilar();
+    setAktifHatirlatici(all[musteriId] || null);
+  }, [musteriId]);
 
   if (!musteri) {
     return (
@@ -53,6 +108,34 @@ export default function MusteriDetay({
       window.open(url, '_blank');
     }
   };
+
+  // Hatırlatıcı kaydet
+  const handleSetHatirlatici = (months: number) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + months);
+    const tarih = d.toISOString().split("T")[0];
+    setHatirlatici(musteriId, tarih);
+    setAktifHatirlatici(tarih);
+    setHatirlaticiModalOpen(false);
+  };
+
+  const handleSetOzelTarih = () => {
+    if (!ozelTarih) return;
+    setHatirlatici(musteriId, ozelTarih);
+    setAktifHatirlatici(ozelTarih);
+    setOzelTarih("");
+    setHatirlaticiModalOpen(false);
+  };
+
+  const handleSilHatirlatici = () => {
+    silHatirlatici(musteriId);
+    setAktifHatirlatici(null);
+  };
+
+  // Hatırlatıcı durumu
+  const kalan = aktifHatirlatici ? kalanGun(aktifHatirlatici) : null;
+  const hatirlaticiGecmis = kalan !== null && kalan < 0;
+  const hatirlaticiYakin = kalan !== null && kalan >= 0 && kalan <= 14;
 
   return (
     <div className="flex flex-col h-full bg-slate-50">
@@ -122,6 +205,79 @@ export default function MusteriDetay({
 
       {/* Bakım Geçmişi */}
       <div className="flex-1 p-4 overflow-y-auto space-y-4 pb-24">
+
+        {/* 🔔 Bakım Hatırlatıcısı Kartı */}
+        <div className={`rounded-xl border p-3.5 shadow-sm transition ${
+          hatirlaticiGecmis
+            ? "bg-rose-50 border-rose-200"
+            : hatirlaticiYakin
+              ? "bg-amber-50 border-amber-200"
+              : aktifHatirlatici
+                ? "bg-emerald-50 border-emerald-200"
+                : "bg-white border-slate-100"
+        }`}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
+                hatirlaticiGecmis
+                  ? "bg-rose-100 text-rose-600"
+                  : hatirlaticiYakin
+                    ? "bg-amber-100 text-amber-600"
+                    : aktifHatirlatici
+                      ? "bg-emerald-100 text-emerald-600"
+                      : "bg-slate-100 text-slate-400"
+              }`}>
+                <Bell className={`h-5 w-5 ${hatirlaticiGecmis || hatirlaticiYakin ? "animate-bounce" : ""}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-700">Bakım Hatırlatıcısı</p>
+                {aktifHatirlatici ? (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <CalendarCheck className="h-3 w-3 text-slate-400 shrink-0" />
+                    <span className={`text-[11px] font-semibold ${
+                      hatirlaticiGecmis ? "text-rose-600" : hatirlaticiYakin ? "text-amber-600" : "text-emerald-600"
+                    }`}>
+                      {formatTarih(aktifHatirlatici)}
+                      {hatirlaticiGecmis
+                        ? ` (${Math.abs(kalan!)} gün geçti!)`
+                        : kalan === 0
+                          ? " (Bugün!)"
+                          : ` (${kalan} gün kaldı)`
+                      }
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-400">Henüz hatırlatıcı eklenmedi</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              {aktifHatirlatici && (
+                <button
+                  onClick={handleSilHatirlatici}
+                  className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                  title="Hatırlatıcıyı Sil"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <button
+                onClick={() => setHatirlaticiModalOpen(true)}
+                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1 active:scale-95 ${
+                  aktifHatirlatici
+                    ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    : "bg-sky-500 text-white hover:bg-sky-600 shadow-sm"
+                }`}
+              >
+                <Clock className="h-3.5 w-3.5" />
+                {aktifHatirlatici ? "Değiştir" : "Ekle"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Bakım Başlığı */}
         <div className="flex justify-between items-center px-1 shrink-0">
           <h3 className="font-bold text-slate-700 text-sm">Geçmiş Bakımlar ({mBakimlar.length})</h3>
           <button
@@ -240,6 +396,93 @@ export default function MusteriDetay({
           </div>
         )}
       </div>
+
+      {/* 🔔 Hatırlatıcı Modal */}
+      {hatirlaticiModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-4 bg-amber-50 border-b border-amber-100 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-slate-800 text-[15px]">🔔 Bakım Hatırlatıcısı</h3>
+                <p className="text-[11px] text-amber-700 font-medium mt-0.5">{musteri.ad}</p>
+              </div>
+              <button onClick={() => setHatirlaticiModalOpen(false)} className="p-1 rounded-full hover:bg-amber-100 text-slate-400 transition">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <p className="text-xs text-slate-500 font-medium">Bir sonraki bakım ne zaman yapılmalı?</p>
+
+              {/* Seçenek 1: 6 Ay */}
+              <button
+                onClick={() => handleSetHatirlatici(6)}
+                className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-sky-300 hover:bg-sky-50 transition active:scale-[0.98] group"
+              >
+                <div className="h-10 w-10 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center font-bold text-sm shrink-0 group-hover:bg-sky-200 transition">
+                  6ay
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-slate-700">6 Ay Sonra</p>
+                  <p className="text-[11px] text-slate-400">
+                    {(() => { const d = new Date(); d.setMonth(d.getMonth() + 6); return formatTarih(d.toISOString()); })()}
+                  </p>
+                </div>
+              </button>
+
+              {/* Seçenek 2: 1 Yıl */}
+              <button
+                onClick={() => handleSetHatirlatici(12)}
+                className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition active:scale-[0.98] group"
+              >
+                <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm shrink-0 group-hover:bg-emerald-200 transition">
+                  1yıl
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-slate-700">1 Yıl Sonra</p>
+                  <p className="text-[11px] text-slate-400">
+                    {(() => { const d = new Date(); d.setMonth(d.getMonth() + 12); return formatTarih(d.toISOString()); })()}
+                  </p>
+                </div>
+              </button>
+
+              {/* Seçenek 3: Özel Tarih */}
+              <div className="rounded-xl border border-slate-200 p-3.5 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+                    <Calendar className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-700">İstediğiniz Tarihi Girin</p>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={ozelTarih}
+                    onChange={(e) => setOzelTarih(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
+                  />
+                  <button
+                    onClick={handleSetOzelTarih}
+                    disabled={!ozelTarih}
+                    className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-lg text-sm font-bold transition active:scale-95"
+                  >
+                    Kaydet
+                  </button>
+                </div>
+              </div>
+
+              {/* İptal */}
+              <button
+                onClick={() => setHatirlaticiModalOpen(false)}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-semibold transition"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
