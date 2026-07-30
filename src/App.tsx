@@ -332,7 +332,7 @@ export default function App() {
     }
     if (activeTab === "musteriler") {
       return (
-        <div className="h-full relative">
+        <div className="h-full relative w-full overflow-x-hidden">
           <div className={selectedMusteriId !== null ? "hidden" : "h-full"}>
             <MusteriListesi
               musteriler={musteriler}

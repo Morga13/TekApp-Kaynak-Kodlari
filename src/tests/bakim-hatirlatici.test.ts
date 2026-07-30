@@ -75,7 +75,10 @@ describe('🔔 Bakım Hatırlatıcısı İş Mantığı', () => {
     });
 
     it('Bugünün tarihi için 0 dönmeli', () => {
-      const bugun = new Date().toISOString().split('T')[0];
+      // toISOString() UTC kullandığı için saat dilimi kaymasını önlemek amacıyla
+      // lokal tarihi YYYY-MM-DD formatında hesaplıyoruz
+      const now = new Date();
+      const bugun = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       expect(kalanGun(bugun)).toBe(0);
     });
 

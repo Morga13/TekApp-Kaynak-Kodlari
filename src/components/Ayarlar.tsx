@@ -201,13 +201,13 @@ export default function Ayarlar({
     <div className="flex flex-col h-full bg-slate-50 overflow-y-auto p-4 pb-24 space-y-4">
       
       {/* Üst Sekme Geçiş Butonları (Aylık Ciro / Bekleyen Ödemeler / Veri Yedekleme) */}
-      <div className="grid grid-cols-3 gap-1 p-1 bg-slate-200/80 rounded-xl shrink-0">
+      <div className="grid grid-cols-3 gap-1 p-1 bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-950 dark:to-black rounded-2xl shrink-0 shadow-lg">
         <button
           onClick={() => setActiveSubTab("ciro")}
-          className={`py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+          className={`py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 active:scale-95 ${
             activeSubTab === "ciro"
-              ? "bg-white text-emerald-600 shadow-xs font-extrabold"
-              : "text-slate-600 hover:text-slate-800"
+              ? "bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-lg shadow-emerald-500/30 font-extrabold scale-[1.02]"
+              : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
           }`}
         >
           <TrendingUp className="h-3.5 w-3.5" />
@@ -216,25 +216,25 @@ export default function Ayarlar({
 
         <button
           onClick={() => setActiveSubTab("odeme")}
-          className={`py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 relative ${
+          className={`py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 relative active:scale-95 ${
             activeSubTab === "odeme"
-              ? "bg-white text-rose-600 shadow-xs font-extrabold"
-              : "text-slate-600 hover:text-slate-800"
+              ? "bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-lg shadow-rose-500/30 font-extrabold scale-[1.02]"
+              : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
           }`}
         >
           <CreditCard className="h-3.5 w-3.5" />
           <span>Alacaklar</span>
           {bekleyenBakimlar.length > 0 && (
-            <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-400 animate-pulse shadow-xs shadow-rose-400/50" />
           )}
         </button>
 
         <button
           onClick={() => setActiveSubTab("yedek")}
-          className={`py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+          className={`py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 active:scale-95 ${
             activeSubTab === "yedek"
-              ? "bg-white text-sky-600 shadow-xs font-extrabold"
-              : "text-slate-600 hover:text-slate-800"
+              ? "bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-lg shadow-sky-500/30 font-extrabold scale-[1.02]"
+              : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
           }`}
         >
           <Database className="h-3.5 w-3.5" />

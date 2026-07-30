@@ -270,10 +270,10 @@ export default function YeniBakimKaydi({
         />
       </div>
 
-      {/* Değişen Parçalar (Checkboxes) */}
+      {/* Değişen Parçalar */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-xs font-bold text-slate-600">Değişen Parçalar (Çoklu Seçim)</label>
+          <label className="block text-xs font-bold text-slate-600">Değişen Parçalar</label>
           {/* Cihaz tipi bilgi rozeti */}
           {cihazTipi === "açık" && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">

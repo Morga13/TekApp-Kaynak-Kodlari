@@ -72,6 +72,8 @@ export default function StokYonetimi({
 }: StokYonetimiProps) {
   const [subTab, setSubTab] = useState<"stok" | "katalog">("stok");
   const [searchKatalog, setSearchKatalog] = useState("");
+  const [searchStok, setSearchStok] = useState("");
+  const [aktifGrup, setAktifGrup] = useState<string>("hepsi");
 
   // Form states
   const [editValues, setEditValues] = useState<Record<number, string>>({});
@@ -158,19 +160,39 @@ export default function StokYonetimi({
     setParcaFiyat("");
   };
 
-  // Gruplanmış stok listesi
-  const used = new Set<number>();
-  const grouped = GRUPLAR.map((g, gi) => {
-    const items = stokKalemleri.filter((k) => {
-      if (used.has(k.id)) return false;
-      if (gi < GRUPLAR.length - 1 ? g.fn(k.ad) : !used.has(k.id)) {
+  // Gruplanmış stok listesi (arama + grup filtresi)
+  const searchStokLower = searchStok.toLocaleLowerCase("tr-TR");
+  const grouped = React.useMemo(() => {
+    const used = new Set<number>();
+    return GRUPLAR.map((g, gi) => {
+      const items = stokKalemleri.filter((k) => {
+        if (used.has(k.id)) return false;
+        const grupEslesiyor = gi < GRUPLAR.length - 1 ? g.fn(k.ad) : !used.has(k.id);
+        if (!grupEslesiyor) return false;
         used.add(k.id);
+        // Arama filtresi
+        if (searchStokLower.trim() && !k.ad.toLocaleLowerCase("tr-TR").includes(searchStokLower)) return false;
         return true;
-      }
-      return false;
+      });
+      return { ...g, items };
     });
-    return { ...g, items };
-  });
+  }, [stokKalemleri, searchStokLower]);
+
+  // Grup filtre butonları için toplam kayıt sayıları
+  const grupSayilari = React.useMemo(() => {
+    const sayilar: Record<string, number> = { hepsi: stokKalemleri.length };
+    const tempUsed = new Set<number>();
+    GRUPLAR.forEach((g, gi) => {
+      const count = stokKalemleri.filter((k) => {
+        if (tempUsed.has(k.id)) return false;
+        const eslesti = gi < GRUPLAR.length - 1 ? g.fn(k.ad) : !tempUsed.has(k.id);
+        if (eslesti) tempUsed.add(k.id);
+        return eslesti;
+      }).length;
+      sayilar[g.key] = count;
+    });
+    return sayilar;
+  }, [stokKalemleri]);
 
   const searchKatalogLower = searchKatalog.toLocaleLowerCase("tr-TR");
   const filteredParcalar = React.useMemo(() => {
@@ -268,20 +290,72 @@ export default function StokYonetimi({
         </div>
 
         {subTab === "stok" && (
-          <div className="flex items-center justify-between pt-1">
-            {kritikSayi > 0 ? (
-              <span className="text-xs font-semibold text-amber-700 flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                {kritikSayi} kalem kritik seviyede!
-              </span>
-            ) : (
-              <span className="text-xs font-semibold text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                Tüm stoklar yeterli ✓
-              </span>
-            )}
-            <button onClick={onRefresh} className="flex items-center gap-1 text-xs text-sky-600 font-semibold active:scale-95 transition">
-              <RefreshCw className="h-3.5 w-3.5" /> Yenile
-            </button>
+          <div className="space-y-2 pt-1">
+            {/* Durum + Yenile satırı */}
+            <div className="flex items-center justify-between">
+              {kritikSayi > 0 ? (
+                <span className="text-xs font-semibold text-amber-700 flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                  {kritikSayi} kalem kritik seviyede!
+                </span>
+              ) : (
+                <span className="text-xs font-semibold text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                  Tüm stoklar yeterli ✓
+                </span>
+              )}
+              <button onClick={onRefresh} className="flex items-center gap-1 text-xs text-sky-600 font-semibold active:scale-95 transition">
+                <RefreshCw className="h-3.5 w-3.5" /> Yenile
+              </button>
+            </div>
+
+            {/* 🔍 Stok Arama Çubuğu */}
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Stok ara..."
+                value={searchStok}
+                onChange={(e) => setSearchStok(e.target.value)}
+                className="w-full pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+              />
+              {searchStok && (
+                <button
+                  onClick={() => setSearchStok("")}
+                  className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 transition"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* 📂 Grup Filtre Butonları */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1 pt-0.5">
+              <button
+                onClick={() => setAktifGrup("hepsi")}
+                className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border transition active:scale-95 ${
+                  aktifGrup === "hepsi"
+                    ? "bg-slate-800 text-white border-slate-800 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                Tümü ({grupSayilari["hepsi"]})
+              </button>
+              {GRUPLAR.map((g) => (
+                grupSayilari[g.key] > 0 && (
+                  <button
+                    key={g.key}
+                    onClick={() => setAktifGrup(aktifGrup === g.key ? "hepsi" : g.key)}
+                    className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border transition active:scale-95 ${
+                      aktifGrup === g.key
+                        ? `${g.renk.replace("text-", "bg-").replace("-600", "-600")} bg-opacity-10 border-current text-current shadow-sm`
+                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    {g.baslik} ({grupSayilari[g.key]})
+                  </button>
+                )
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -289,15 +363,24 @@ export default function StokYonetimi({
       {/* SEKME 1: STOK ADETLERİ VE YÖNETİMİ */}
       {subTab === "stok" && (
         <div className="p-4 space-y-5">
-          {grouped.map((g) =>
-            g.items.length === 0 ? null : (
-              <div key={g.key}>
-                <h3 className={`text-[11px] font-extrabold uppercase tracking-widest mb-2 ${g.renk}`}>
-                  {g.baslik} <span className="font-normal opacity-60">({g.items.length})</span>
-                </h3>
-                <div className="space-y-2">{g.items.map(renderKalem)}</div>
-              </div>
-            )
+          {grouped
+            .filter((g) => aktifGrup === "hepsi" || g.key === aktifGrup)
+            .map((g) =>
+              g.items.length === 0 ? null : (
+                <div key={g.key}>
+                  <h3 className={`text-[11px] font-extrabold uppercase tracking-widest mb-2 ${g.renk}`}>
+                    {g.baslik} <span className="font-normal opacity-60">({g.items.length})</span>
+                  </h3>
+                  <div className="space-y-2">{g.items.map(renderKalem)}</div>
+                </div>
+              )
+            )}
+          {grouped.filter((g) => aktifGrup === "hepsi" || g.key === aktifGrup).every((g) => g.items.length === 0) && (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <Search className="h-8 w-8 text-slate-300 mb-2" />
+              <p className="text-sm font-medium text-slate-400">Sonuç bulunamadı</p>
+              <p className="text-xs text-slate-300 mt-1">Arama terimini veya grubu değiştirin</p>
+            </div>
           )}
         </div>
       )}

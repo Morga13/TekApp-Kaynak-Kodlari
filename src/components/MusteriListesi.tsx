@@ -200,7 +200,7 @@ export default function MusteriListesi({
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div className="flex flex-col h-full bg-slate-50 w-full max-w-full overflow-x-hidden">
       {/* Search Header */}
       <div className="p-4 bg-white border-b border-slate-200 flex flex-col gap-3">
         <div className="relative">
@@ -216,48 +216,48 @@ export default function MusteriListesi({
       </div>
 
       {/* Customer List */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-3 pb-24">
+      <div className="flex-1 p-4 overflow-y-auto space-y-3 pb-24 w-full max-w-full overflow-x-hidden">
         {filtered.length > 0 ? (
           filtered.map((m) => (
             <div
               key={m.id}
-              className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition flex justify-between items-start gap-3"
+              className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition flex justify-between items-start gap-2.5 min-w-0 max-w-full overflow-hidden"
             >
               <div
                 onClick={() => onSelectMusteri(m.id)}
-                className="flex-1 cursor-pointer space-y-1.5"
+                className="flex-1 min-w-0 cursor-pointer space-y-1.5"
               >
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-bold text-slate-800 text-[15px]">{m.ad}</h3>
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <h3 className="font-bold text-slate-800 text-[15px] truncate max-w-full">{m.ad}</h3>
                   {m.not?.includes("Açık Cihaz") && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                       <span className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
                       AÇIK CİHAZ
                     </span>
                   )}
                   {m.not?.includes("Kapalı Cihaz") && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
                       <span className="h-1 w-1 rounded-full bg-blue-400" />
                       KAPALI CİHAZ
                     </span>
                   )}
                 </div>
                 {m.telefon && (
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">
                     <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                    <span>{m.telefon}</span>
+                    <span className="truncate">{m.telefon}</span>
                   </div>
                 )}
                 {m.adres && (
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">
                     <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                    <span className="truncate max-w-[200px]">{m.adres}</span>
+                    <span className="truncate min-w-0 flex-1">{m.adres}</span>
                   </div>
                 )}
                 {m.not && m.not !== "Açık Cihaz" && m.not !== "Kapalı Cihaz" && (
-                  <div className="flex items-start gap-2 text-xs text-slate-400 italic">
+                  <div className="flex items-start gap-2 text-xs text-slate-400 italic min-w-0">
                     <FileText className="h-3.5 w-3.5 text-slate-300 shrink-0 mt-0.5" />
-                    <span className="line-clamp-1">{m.not}</span>
+                    <span className="line-clamp-1 truncate">{m.not}</span>
                   </div>
                 )}
               </div>
