@@ -23,9 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Capacitor
-android/
-ios/
+# Capacitor (tracked in repo)
+# android/
+# ios/
 
 # Backup folders
 src_backup*
