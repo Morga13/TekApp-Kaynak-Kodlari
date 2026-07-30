@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Musteri } from "../types";
 import { Search, Plus, Phone, MapPin, FileText, Edit2, Trash2, Eye, X, Smartphone, MessageSquare, LocateFixed, Loader2 } from "lucide-react";
 import { Contacts } from "@capacitor-community/contacts";
+import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from '@capacitor/core';
 
 
@@ -37,8 +38,6 @@ export default function MusteriListesi({
   const [ad, setAd] = useState("");
   const [telefon, setTelefon] = useState("");
   const [adres, setAdres] = useState("");
-  const [daireNo, setDaireNo] = useState("");
-  const [katNo, setKatNo] = useState("");
   const [hasAcik, setHasAcik] = useState(false);
   const [hasKapali, setHasKapali] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,17 +166,12 @@ export default function MusteriListesi({
     if (hasAcik) deviceTypes.push("Açık Cihaz");
     if (hasKapali) deviceTypes.push("Kapalı Cihaz");
 
-    // Adres + daire/kat birleştirme
-    const ekBilgi = [katNo.trim() ? `Kat: ${katNo.trim()}` : "", daireNo.trim() ? `Daire: ${daireNo.trim()}` : ""]
-      .filter(Boolean).join(" / ");
-    const tamAdres = [adres.trim(), ekBilgi].filter(Boolean).join(" — ");
-
     setError(null);
     const success = await onAddOrEdit({
       id: editId,
       ad: ad.trim(),
       telefon: telefon.trim(),
-      adres: tamAdres,
+      adres: adres.trim(),
       not: deviceTypes.join(", ")
     });
     if (success) {
@@ -185,59 +179,78 @@ export default function MusteriListesi({
     }
   };
 
-  // GPS konum al + reverse geocoding (Nominatim/OpenStreetMap - ücretsiz, API key gerektirmez)
-  const handleKonumuKullan = () => {
-    if (!navigator.geolocation) {
-      setKonumHata("Tarayıcınız konum özelliğini desteklemiyor.");
-      return;
-    }
+  // GPS konum al + reverse geocoding (Capacitor Geolocation + Nominatim)
+  const handleKonumuKullan = async () => {
     setKonumYukleniyor(true);
     setKonumHata(null);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`,
-            { headers: { "User-Agent": "TekApp/1.0" } }
-          );
-          const data = await res.json();
-          // Açık adres formatı oluştur
-          const a = data.address || {};
-          const parcalar = [
-            a.road || a.pedestrian || a.footway || "",
-            a.house_number ? `No:${a.house_number}` : "",
-            a.neighbourhood || a.suburb || a.quarter || "",
-            a.district || a.town || a.city_district || "",
-            a.city || a.county || a.state || "",
-          ].filter(Boolean);
-          setAdres(parcalar.join(", ") || data.display_name || "");
-        } catch {
-          setKonumHata("Adres çözümlenemedi. GPS koordinatları alındı.");
-          setAdres(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-        } finally {
-          setKonumYukleniyor(false);
+
+    let latitude: number | null = null;
+    let longitude: number | null = null;
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // Native İzin Kontrolü ve İsteği
+        let perm = await Geolocation.checkPermissions();
+        if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
+          perm = await Geolocation.requestPermissions();
         }
-      },
-      (err) => {
-        setKonumYukleniyor(false);
-        if (err.code === 1) setKonumHata("Konum izni reddedildi. Ayarlardan izin verin.");
-        else if (err.code === 2) setKonumHata("Konum alınamadı. GPS sinyali zayıf.");
-        else setKonumHata("Konum alınırken hata oluştu.");
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+        if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
+          setKonumHata("Konum izni reddedildi. Cihaz ayarlarından TekApp konum iznini açınız.");
+          setKonumYukleniyor(false);
+          return;
+        }
+        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+      } else {
+        // Web Fallback
+        if (!navigator.geolocation) {
+          setKonumHata("Tarayıcınız konum özelliğini desteklemiyor.");
+          setKonumYukleniyor(false);
+          return;
+        }
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 });
+        });
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+      }
+
+      if (latitude !== null && longitude !== null) {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`,
+          { headers: { "User-Agent": "TekApp/1.0" } }
+        );
+        const data = await res.json();
+        const a = data.address || {};
+        const parcalar = [
+          a.road || a.pedestrian || a.footway || "",
+          a.house_number ? `No:${a.house_number}` : "",
+          a.neighbourhood || a.suburb || a.quarter || "",
+          a.district || a.town || a.city_district || "",
+          a.city || a.county || a.state || "",
+        ].filter(Boolean);
+        const gelenAdres = parcalar.join(", ") || data.display_name || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        setAdres(gelenAdres);
+      }
+    } catch (err: unknown) {
+      console.error("Konum hatası:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.toLowerCase().includes("denied") || msg.toLowerCase().includes("disabled")) {
+        setKonumHata("Konum izni kapalı. Telefon ayarlarından konum servislerini ve izinleri açınız.");
+      } else {
+        setKonumHata("Konum alınamadı. Lütfen GPS bağlantınızı kontrol edin.");
+      }
+    } finally {
+      setKonumYukleniyor(false);
+    }
   };
 
   const startEdit = (m: Musteri) => {
     setEditId(m.id);
     setAd(m.ad);
     setTelefon(m.telefon || "");
-    // Adres kaydedilirken "—" ile birleştirilen ek bilgiyi ayır
-    const [adresPart] = (m.adres || "").split(" — ");
-    setAdres(adresPart || "");
-    setDaireNo("");
-    setKatNo("");
+    setAdres(m.adres || "");
     const notStr = m.not || "";
     setHasAcik(notStr.includes("Açık Cihaz"));
     setHasKapali(notStr.includes("Kapalı Cihaz"));
@@ -251,8 +264,6 @@ export default function MusteriListesi({
     setAd("");
     setTelefon("");
     setAdres("");
-    setDaireNo("");
-    setKatNo("");
     setHasAcik(false);
     setHasKapali(false);
     setError(null);
@@ -471,40 +482,17 @@ export default function MusteriListesi({
                   </button>
                 </div>
                 <textarea
-                  placeholder="Müşterinin adresi (GPS ile otomatik doldurulabilir)"
+                  placeholder="Müşterinin adresi (Konumumu Kullan ile otomatik doldurup manuel kat/daire ekleyebilirsiniz)"
                   value={adres}
                   onChange={(e) => setAdres(e.target.value)}
-                  rows={2}
+                  rows={3}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 resize-none"
                 />
                 {konumHata && (
-                  <p className="text-[10px] text-rose-500 mt-1 flex items-center gap-1">
-                    <X className="h-3 w-3" />{konumHata}
+                  <p className="text-[10px] text-rose-500 mt-1 flex items-center gap-1 font-medium">
+                    <X className="h-3 w-3 shrink-0" />{konumHata}
                   </p>
                 )}
-                {/* Ek adres bilgileri */}
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div>
-                    <label className="text-[10px] text-slate-500 font-semibold block mb-0.5">Kat No <span className="font-normal">(isteğe bağlı)</span></label>
-                    <input
-                      type="text"
-                      placeholder="Örn: 3"
-                      value={katNo}
-                      onChange={(e) => setKatNo(e.target.value)}
-                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-slate-500 font-semibold block mb-0.5">Daire No <span className="font-normal">(isteğe bağlı)</span></label>
-                    <input
-                      type="text"
-                      placeholder="Örn: 12"
-                      value={daireNo}
-                      onChange={(e) => setDaireNo(e.target.value)}
-                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    />
-                  </div>
-                </div>
               </div>
 
               <div>
