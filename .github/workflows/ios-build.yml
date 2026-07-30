@@ -31,17 +31,29 @@ jobs:
         run: |
           xcodebuild -workspace ios/App/App.xcworkspace \
             -scheme App \
-            -sdk iphoneos \
             -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
             -derivedDataPath build \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            DEVELOPMENT_TEAM="" || \
+          xcodebuild -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
 
       - name: Package IPA
         run: |
           mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/App.app Payload/
+          APP_PATH=$(find build/Build/Products -name "App.app" | head -n 1)
+          echo "Found App bundle at: $APP_PATH"
+          cp -r "$APP_PATH" Payload/
           zip -r TekApp.ipa Payload
 
       - name: Upload IPA Artifact
