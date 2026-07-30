@@ -24,14 +24,12 @@ jobs:
       - name: Build Web App
         run: npm run build
 
-      - name: Sync Capacitor iOS
-        run: npx cap copy ios || true
-
-      - name: Resolve Swift Package Dependencies
+      - name: Fix Package.swift Paths on macOS
         run: |
-          xcodebuild -resolvePackageDependencies \
-            -project ios/App/App.xcodeproj \
-            -scheme App
+          sed -i '' 's/\\/\//g' ios/App/CapApp-SPM/Package.swift || true
+
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios || true
 
       - name: Build iOS App
         run: |
