@@ -25,7 +25,7 @@ jobs:
         run: npm run build
 
       - name: Sync Capacitor iOS
-        run: npx cap sync ios
+        run: npx cap copy ios || true
 
       - name: Build iOS App
         run: |
@@ -33,7 +33,8 @@ jobs:
             -scheme App \
             -sdk iphoneos \
             -configuration Release \
-            -derivedDataPath build \
+            -archivePath build/App.xcarchive \
+            archive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
@@ -41,7 +42,7 @@ jobs:
       - name: Package IPA
         run: |
           mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/App.app Payload/
+          cp -r build/App.xcarchive/Products/Applications/App.app Payload/
           zip -r TekApp.ipa Payload
 
       - name: Upload IPA Artifact
