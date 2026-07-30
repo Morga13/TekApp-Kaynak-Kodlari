@@ -21,6 +21,18 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
-  }
+    "noEmit": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src"],
+  "exclude": [
+    "node_modules",
+    "src_backup_v1",
+    "src_backup_v2",
+    "src_backup_v3",
+    "src_backup_v4",
+    "dist",
+    "android",
+    "ios"
+  ]
 }

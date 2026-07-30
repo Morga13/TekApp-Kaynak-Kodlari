@@ -202,11 +202,13 @@ export async function decreaseStockForBakim(
     if (!stokInfo) return;
     const yeniMiktar = Math.max(0, stokInfo.miktar - gerekli);
     guncellemePromises.push(
-      supabase
-        .from("stok")
-        .update({ miktar: yeniMiktar })
-        .eq("id", stokInfo.id)
-        .then(({ error }) => { if (error) throw error; })
+      Promise.resolve(
+        supabase
+          .from("stok")
+          .update({ miktar: yeniMiktar })
+          .eq("id", stokInfo.id)
+          .then(({ error }) => { if (error) throw error; })
+      )
     );
   });
 

@@ -9,12 +9,12 @@ const INITIAL_MUSTERILER: Musteri[] = [
 ];
 
 const INITIAL_PARCALAR: Parca[] = [
-  { id: 1, ad: "Yağ Filtresi (Standart)", fiyat: 250 },
-  { id: 2, ad: "Hava Filtresi (Premium)", fiyat: 350 },
-  { id: 3, ad: "Motor Yağı (4 Litre)", fiyat: 1200 },
-  { id: 4, ad: "Kombi Esanjör Temizleme Sıvısı", fiyat: 450 },
-  { id: 5, ad: "Radyatör Temizleme Kimyasalı", fiyat: 300 },
-  { id: 6, ad: "Klima Gazı R410A (100gr)", fiyat: 180 }
+  { id: 1, ad: "Yağ Filtresi (Standart)", fiyat: 250, stok: 0 },
+  { id: 2, ad: "Hava Filtresi (Premium)", fiyat: 350, stok: 0 },
+  { id: 3, ad: "Motor Yağı (4 Litre)", fiyat: 1200, stok: 0 },
+  { id: 4, ad: "Kombi Esanjör Temizleme Sıvısı", fiyat: 450, stok: 0 },
+  { id: 5, ad: "Radyatör Temizleme Kimyasalı", fiyat: 300, stok: 0 },
+  { id: 6, ad: "Klima Gazı R410A (100gr)", fiyat: 180, stok: 0 }
 ];
 
 const INITIAL_BAKIMLAR: Bakim[] = [

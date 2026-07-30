@@ -254,7 +254,7 @@ export default function Ayarlar({
             <div className="space-y-2.5">
               {monthlyStats.map((m) => {
                 const isExpanded = expandedMonth === m.monthKey;
-                const parcaEntries = Object.entries(m.parcalarUsage).sort((a, b) => b[1] - a[1]);
+                const parcaEntries = Object.entries(m.parcalarUsage).sort((a, b) => (b[1] as number) - (a[1] as number));
 
                 return (
                   <div

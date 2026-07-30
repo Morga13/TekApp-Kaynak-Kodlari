@@ -1,8 +1,8 @@
-import React, { Component, ErrorInfo, ReactNode } from "react";
+import React from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
 interface Props {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 interface State {
@@ -10,26 +10,30 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false,
-    error: null,
-  };
+class ErrorBoundary extends React.Component<Props, State> {
+  declare state: State;
+  declare props: Props & { children: React.ReactNode };
 
-  public static getDerivedStateFromError(error: Error): State {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+    this.handleReload = this.handleReload.bind(this);
+  }
+
+  static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("Uncaught React Error:", error, errorInfo);
   }
 
-  private handleReload = () => {
-    this.setState({ hasError: false, error: null });
+  handleReload() {
+    (this as React.Component<Props, State>).setState({ hasError: false, error: null });
     window.location.reload();
-  };
+  }
 
-  public render() {
+  render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center">
@@ -54,4 +58,5 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
 export default ErrorBoundary;

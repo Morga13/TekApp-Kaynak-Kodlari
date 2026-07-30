@@ -91,21 +91,22 @@ export default function MusteriListesi({
         }
 
         setRealContacts(
-          contacts
-            .filter((c) => (c.phoneNumbers && c.phoneNumbers.length > 0) || (c.phones && (c as any).phones.length > 0))
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (contacts as any[])
+            .filter((c) => (c.phoneNumbers && c.phoneNumbers.length > 0) || (c.phones && c.phones.length > 0))
             .map((c) => {
-              const phoneObj = c.phoneNumbers?.[0] || (c as any).phones?.[0];
-              const tel = phoneObj?.number || "";
-              const given = c.name?.given || "";
-              const family = c.name?.family || "";
+              const phoneObj = c.phoneNumbers?.[0] || c.phones?.[0];
+              const tel: string = phoneObj?.number || "";
+              const given: string = c.name?.given || "";
+              const family: string = c.name?.family || "";
               const fullFromParts = `${given} ${family}`.trim();
-              const ad = c.displayName || c.name?.display || fullFromParts || "(İsimsiz)";
+              const ad: string = c.displayName || c.name?.display || fullFromParts || "(İsimsiz)";
               return {
                 ad: ad.trim(),
                 telefon: tel.replace(/\s+/g, ""),
               };
             })
-            .filter((c) => c.telefon.length > 0)
+            .filter((c: { telefon: string }) => c.telefon.length > 0)
         );
         setContactSearch("");
         setVirtualContactsOpen(true);
