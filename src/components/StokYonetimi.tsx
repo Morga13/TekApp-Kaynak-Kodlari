@@ -73,7 +73,6 @@ export default function StokYonetimi({
   const [subTab, setSubTab] = useState<"stok" | "katalog">("stok");
   const [searchKatalog, setSearchKatalog] = useState("");
   const [searchStok, setSearchStok] = useState("");
-  const [aktifGrup, setAktifGrup] = useState<string>("hepsi");
 
   // Form states
   const [editValues, setEditValues] = useState<Record<number, string>>({});
@@ -177,22 +176,6 @@ export default function StokYonetimi({
       return { ...g, items };
     });
   }, [stokKalemleri, searchStokLower]);
-
-  // Grup filtre butonları için toplam kayıt sayıları
-  const grupSayilari = React.useMemo(() => {
-    const sayilar: Record<string, number> = { hepsi: stokKalemleri.length };
-    const tempUsed = new Set<number>();
-    GRUPLAR.forEach((g, gi) => {
-      const count = stokKalemleri.filter((k) => {
-        if (tempUsed.has(k.id)) return false;
-        const eslesti = gi < GRUPLAR.length - 1 ? g.fn(k.ad) : !tempUsed.has(k.id);
-        if (eslesti) tempUsed.add(k.id);
-        return eslesti;
-      }).length;
-      sayilar[g.key] = count;
-    });
-    return sayilar;
-  }, [stokKalemleri]);
 
   const searchKatalogLower = searchKatalog.toLocaleLowerCase("tr-TR");
   const filteredParcalar = React.useMemo(() => {
@@ -327,35 +310,6 @@ export default function StokYonetimi({
                 </button>
               )}
             </div>
-
-            {/* 📂 Grup Filtre Butonları */}
-            <div className="flex gap-1.5 overflow-x-auto pb-1 pt-0.5">
-              <button
-                onClick={() => setAktifGrup("hepsi")}
-                className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border transition active:scale-95 ${
-                  aktifGrup === "hepsi"
-                    ? "bg-slate-800 text-white border-slate-800 shadow-sm"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                Tümü ({grupSayilari["hepsi"]})
-              </button>
-              {GRUPLAR.map((g) => (
-                grupSayilari[g.key] > 0 && (
-                  <button
-                    key={g.key}
-                    onClick={() => setAktifGrup(aktifGrup === g.key ? "hepsi" : g.key)}
-                    className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border transition active:scale-95 ${
-                      aktifGrup === g.key
-                        ? `${g.renk.replace("text-", "bg-").replace("-600", "-600")} bg-opacity-10 border-current text-current shadow-sm`
-                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    {g.baslik} ({grupSayilari[g.key]})
-                  </button>
-                )
-              ))}
-            </div>
           </div>
         )}
       </div>
@@ -363,23 +317,21 @@ export default function StokYonetimi({
       {/* SEKME 1: STOK ADETLERİ VE YÖNETİMİ */}
       {subTab === "stok" && (
         <div className="p-4 space-y-5">
-          {grouped
-            .filter((g) => aktifGrup === "hepsi" || g.key === aktifGrup)
-            .map((g) =>
-              g.items.length === 0 ? null : (
-                <div key={g.key}>
-                  <h3 className={`text-[11px] font-extrabold uppercase tracking-widest mb-2 ${g.renk}`}>
-                    {g.baslik} <span className="font-normal opacity-60">({g.items.length})</span>
-                  </h3>
-                  <div className="space-y-2">{g.items.map(renderKalem)}</div>
-                </div>
-              )
-            )}
-          {grouped.filter((g) => aktifGrup === "hepsi" || g.key === aktifGrup).every((g) => g.items.length === 0) && (
+          {grouped.map((g) =>
+            g.items.length === 0 ? null : (
+              <div key={g.key}>
+                <h3 className={`text-[11px] font-extrabold uppercase tracking-widest mb-2 ${g.renk}`}>
+                  {g.baslik} <span className="font-normal opacity-60">({g.items.length})</span>
+                </h3>
+                <div className="space-y-2">{g.items.map(renderKalem)}</div>
+              </div>
+            )
+          )}
+          {grouped.every((g) => g.items.length === 0) && (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <Search className="h-8 w-8 text-slate-300 mb-2" />
               <p className="text-sm font-medium text-slate-400">Sonuç bulunamadı</p>
-              <p className="text-xs text-slate-300 mt-1">Arama terimini veya grubu değiştirin</p>
+              <p className="text-xs text-slate-300 mt-1">Arama terimi farklı deneyin</p>
             </div>
           )}
         </div>

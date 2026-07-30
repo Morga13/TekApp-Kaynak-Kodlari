@@ -289,32 +289,18 @@ export default function YeniBakimKaydi({
           )}
         </div>
 
-        {/* Hızlı Paket Seçim Butonları */}
-        <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-1">
-          <button
-            type="button"
-            onClick={() => applyPreset("5li")}
-            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-[11px] font-bold transition shrink-0 active:scale-95 flex items-center gap-1 cursor-pointer"
-          >
-            ⚡ 5'li Takım Seç
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset("3li")}
-            className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-lg text-[11px] font-bold transition shrink-0 active:scale-95 flex items-center gap-1 cursor-pointer"
-          >
-            ⚡ 3'lü Ön Filtre Seç
-          </button>
-          {secilenParcalar.length > 0 && (
+        {/* Temizle butonu - sadece seçim varsa görünür */}
+        {secilenParcalar.length > 0 && (
+          <div className="flex justify-end mb-2">
             <button
               type="button"
               onClick={() => setSecilenParcalar([])}
-              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shrink-0 ml-auto cursor-pointer"
+              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shrink-0 cursor-pointer"
             >
               Temizle ({secilenParcalar.length})
             </button>
-          )}
-        </div>
+          </div>
+        )}
         {/* Arama kutusu */}
         <div className="relative mb-1.5">
           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />

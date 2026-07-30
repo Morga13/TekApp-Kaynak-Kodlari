@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Capacitor } from '@capacitor/core';
 import { Musteri, Bakim, DeğişenParça } from "../types";
-import { ArrowLeft, Phone, MapPin, FileText, Calendar, Trash2, ShieldAlert, Plus, MessageSquare, Bell, X, Clock, CalendarCheck } from "lucide-react";
+import { Phone, MapPin, FileText, Calendar, Trash2, ShieldAlert, Plus, MessageSquare, Bell, X, Clock, CalendarCheck } from "lucide-react";
 
 interface MusteriDetayProps {
   musteriId: number;
@@ -75,6 +75,44 @@ export default function MusteriDetay({
   const [ozelTarih, setOzelTarih] = useState("");
   const [aktifHatirlatici, setAktifHatirlatici] = useState<string | null>(null);
 
+  // --- Swipe-Back Gesture ---
+  const touchStartX = useRef<number>(0);
+  const touchStartY = useRef<number>(0);
+  const [swipeDx, setSwipeDx] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
+    setSwiping(false);
+    setSwipeDx(0);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartX.current;
+    const dy = Math.abs(touch.clientY - touchStartY.current);
+    // Sadece soldan sağa swipe, dikey kayma değil, ve sol kenar başlangıcı (ilk 80px)
+    if (dx > 0 && dy < 60 && touchStartX.current < 80) {
+      setSwiping(true);
+      setSwipeDx(Math.min(dx, window.innerWidth));
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (swiping && swipeDx > 100) {
+      // Eşiği geçti: geri dön animasyonu + navigate
+      setSwipeDx(window.innerWidth);
+      setTimeout(() => onBack(), 200);
+    } else {
+      // Geri çek
+      setSwipeDx(0);
+      setSwiping(false);
+    }
+  }, [swiping, swipeDx, onBack]);
+  // --- /Swipe-Back Gesture ---
+
   useEffect(() => {
     const all = getHatirlaticilar();
     setAktifHatirlatici(all[musteriId] || null);
@@ -138,13 +176,20 @@ export default function MusteriDetay({
   const hatirlaticiYakin = kalan !== null && kalan >= 0 && kalan <= 14;
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div
+      className="flex flex-col h-full bg-slate-50"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        transform: swipeDx > 0 ? `translateX(${swipeDx}px)` : undefined,
+        transition: swiping && swipeDx > 0 ? "none" : "transform 0.2s cubic-bezier(0.25,0.46,0.45,0.94)",
+        boxShadow: swipeDx > 0 ? `-8px 0 24px rgba(0,0,0,0.18)` : undefined,
+      }}
+    >
       {/* Profil Header */}
       <div className="bg-slate-800 text-white px-4 py-5 flex flex-col gap-4 shadow-md shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-1.5 hover:bg-slate-700 rounded-lg transition" title="Geri">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
           <div className="h-11 w-11 rounded-full bg-sky-400 text-white font-bold text-lg flex items-center justify-center">
             {musteri.ad ? musteri.ad[0]?.toUpperCase() || '?' : '?'}
           </div>
