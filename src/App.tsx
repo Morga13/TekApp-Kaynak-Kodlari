@@ -399,43 +399,52 @@ export default function App() {
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* Mobil üst başlık */}
-      <header className="bg-sky-600 text-white px-4 pt-safe flex items-center justify-between shrink-0"
-        style={{ paddingTop: "env(safe-area-inset-top, 12px)", minHeight: "56px" }}>
-        <div className="flex items-center gap-2 py-3">
-          <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-xs">TA</div>
-          <span className="font-bold text-base tracking-tight">{getScreenTitle()}</span>
+      <header className="bg-gradient-to-r from-sky-600 via-sky-700 to-indigo-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 text-white px-4 pt-safe flex items-center justify-between shrink-0 shadow-sm border-b border-white/10"
+        style={{ paddingTop: "env(safe-area-inset-top, 12px)", minHeight: "58px" }}>
+        <div className="flex items-center gap-2.5 py-3">
+          <div className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 text-white font-extrabold text-xs flex items-center justify-center shadow-inner tracking-wider">
+            TA
+          </div>
+          <span className="font-extrabold text-base tracking-tight text-white drop-shadow-xs">{getScreenTitle()}</span>
         </div>
         <div className="flex items-center gap-1.5 py-3">
-          {syncing && <Loader2 className="h-4 w-4 animate-spin text-white/70" />}
-          <div className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-300" : "bg-amber-300"}`} />
-          <span className="text-[11px] text-white/80">{isOnline ? "Sync" : "Çevrimdışı"}</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-xs">
+            {syncing && <Loader2 className="h-3.5 w-3.5 animate-spin text-white/90" />}
+            <div className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-400 shadow-emerald-400/50 shadow-xs" : "bg-amber-400 shadow-amber-400/50 shadow-xs"}`} />
+            <span className="text-[11px] font-semibold text-white/90">{isOnline ? "Canlı Senkron" : "Çevrimdışı"}</span>
+          </div>
         </div>
       </header>
 
       {/* İçerik alanı - tam ekran */}
-      <div className="flex-1 overflow-hidden bg-slate-50 text-slate-800">
+      <div className="flex-1 overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100">
         {renderScreen()}
       </div>
 
       {/* Alt navigasyon çubuğu (3 Temel Sekme) */}
-      <nav className="bg-white border-t border-slate-200 flex justify-around items-center shrink-0"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", minHeight: "60px" }}>
+      <nav className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 flex justify-around items-center shrink-0 px-2 shadow-lg"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 8px)", paddingTop: "6px", minHeight: "62px" }}>
         {[
           { tab: "musteriler"  as TabType, icon: Users,      label: "Müşteriler" },
           { tab: "stok"        as TabType, icon: Package,    label: "Stok & Malzeme" },
           { tab: "ayarlar"     as TabType, icon: Settings,   label: "Ayarlar" },
-        ].map(({ tab, icon: Icon, label }) => (
-          <button
-            key={tab}
-            onClick={() => navigateToTab(tab)}
-            className={`flex flex-col items-center justify-center flex-1 py-2 transition-colors ${
-              activeTab === tab ? "text-sky-600 font-bold" : "text-slate-400"
-            }`}
-          >
-            <Icon className="h-5 w-5" />
-            <span className="text-[10px] mt-0.5">{label}</span>
-          </button>
-        ))}
+        ].map(({ tab, icon: Icon, label }) => {
+          const isActive = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => navigateToTab(tab)}
+              className={`flex flex-col items-center justify-center flex-1 py-1.5 px-3 rounded-xl transition-all duration-200 active:scale-95 cursor-pointer ${
+                isActive
+                  ? "bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 font-bold shadow-xs border border-sky-100 dark:border-sky-900/40"
+                  : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+              }`}
+            >
+              <Icon className={`h-5 w-5 transition-transform duration-200 ${isActive ? "scale-110" : ""}`} />
+              <span className="text-[10px] mt-1 font-semibold tracking-tight">{label}</span>
+            </button>
+          );
+        })}
       </nav>
     </div>
   );
