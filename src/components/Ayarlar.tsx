@@ -271,7 +271,7 @@ export default function Ayarlar({
         >
           <CreditCard className="h-3.5 w-3.5" />
           <span>Alacaklar</span>
-          {bekleyenBakimlar.length > 0 && (
+          {borcluMusterilerListesi.length > 0 && (
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-400 animate-pulse shadow-xs shadow-rose-400/50" />
           )}
         </button>
