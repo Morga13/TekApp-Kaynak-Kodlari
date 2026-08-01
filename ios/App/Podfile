@@ -1,0 +1,13 @@
+platform :ios, '15.0'
+use_frameworks!
+
+def capacitor_pods
+  pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorCommunityContacts', :path => '../../node_modules/@capacitor-community/contacts'
+  pod 'CapacitorGeolocation', :path => '../../node_modules/@capacitor/geolocation'
+end
+
+target 'App' do
+  capacitor_pods
+end
