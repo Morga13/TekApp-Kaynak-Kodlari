@@ -35,41 +35,13 @@ export default function YeniBakimKaydi({
   const [tarih, setTarih] = useState("");
   const [secilenParcalar, setSecilenParcalar] = useState<SecilenMiktar[]>([]);
   const [not, setNot] = useState("");
-  const [odendi, setOdendi] = useState<number>(0); // 0: Ödenmedi, 1: Ödendi
+  const [odendi, setOdendi] = useState<number>(0); // 0: Borç (Ödeme Bekliyor), 1: Peşin Ödendi
   const [parcaSearch, setParcaSearch] = useState("");
-
   const [ozelFiyat, setOzelFiyat] = useState<string>("");
 
-  // Seçili müşterinin cihaz tipleri
-  const secilenMusteri = musteriler.find((m) => m.id === secilenMusteriId);
-  const isAcik = secilenMusteri?.not?.includes("Açık Cihaz") ?? false;
-  const isKapali = secilenMusteri?.not?.includes("Kapalı Cihaz") ?? false;
-  const cihazTipi = isAcik && isKapali ? "herikisi" : isAcik ? "açık" : isKapali ? "kapalı" : "yok";
+  const [taksitliYap, setTaksitliYap] = useState(false);
+  const [taksitSayisi, setTaksitSayisi] = useState(6);
 
-  /**
-   * Parcanın açık cihaza özel mi, kapalı cihaza özel mi,
-   * yoksa ortak mı olduğunu döndürür.
-   */
-  function getParcaCihazTipi(ad: string): "açık" | "kapalı" | "ortak" {
-    const n = ad.toLowerCase();
-    const isFiltreParca = n.includes("filtre") || n.includes("takım");
-    if (!isFiltreParca) return "ortak";
-    if (n.includes("açık")) return "açık";
-    if (n.includes("kapalı") || n.includes("kokonat")) return "kapalı";
-    return "ortak";
-  }
-
-  function shouldShowParca(ad: string): boolean {
-    const pTip = getParcaCihazTipi(ad);
-    if (pTip === "ortak") return true;
-    if (!isAcik && !isKapali) return true; // Cihaz seçili değilse tüm parçaları göster
-    if (isAcik && isKapali) return true;   // Her ikisi de seçiliyse tüm parçaları göster
-    if (isAcik && pTip === "açık") return true;
-    if (isKapali && pTip === "kapalı") return true;
-    return false;
-  }
-
-  // Set default current date YYYY-MM-DD
   useEffect(() => {
     const d = new Date();
     const year = d.getFullYear();
@@ -78,7 +50,6 @@ export default function YeniBakimKaydi({
     setTarih(`${year}-${month}-${day}`);
   }, []);
 
-  // Update customer ID if the prop changes
   useEffect(() => {
     if (initialMusteriId) {
       setSecilenMusteriId(initialMusteriId);
@@ -117,18 +88,14 @@ export default function YeniBakimKaydi({
     return sum;
   };
 
-  const [isCihazSatisi, setIsCihazSatisi] = useState(false);
-  const [taksitliYap, setTaksitliYap] = useState(false);
-  const [taksitSayisi, setTaksitSayisi] = useState(6);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!secilenMusteriId) {
       alert("Lütfen bir müşteri seçin.");
       return;
     }
-    if (secilenParcalar.length === 0 && !isCihazSatisi && (!ozelFiyat || Number(ozelFiyat) <= 0)) {
-      alert("Lütfen en az bir adet değişen parça seçin veya özel tutar girin.");
+    if (secilenParcalar.length === 0 && (!ozelFiyat || Number(ozelFiyat) <= 0)) {
+      alert("Lütfen en az bir adet ürün/hizmet seçin veya özel tutar girin.");
       return;
     }
     if (!tarih.trim()) {
@@ -152,18 +119,15 @@ export default function YeniBakimKaydi({
     const calculatedTotal = calculateTotal();
     const finalTotal = ozelFiyat && !isNaN(Number(ozelFiyat)) ? Number(ozelFiyat) : calculatedTotal;
 
-    const notPrefix = isCihazSatisi ? "📱 Cihaz Satışı — " : "";
-
     onSave({
       musteri_id: secilenMusteriId,
       tarih: tarih.trim(),
       parcalar: JSON.stringify(partsToSave),
       toplam: finalTotal,
-      not: notPrefix + not.trim(),
+      not: not.trim(),
       odendi: odendi
     });
 
-    // Eğer Taksitli Ödeme Planı seçildiyse taksitleri üret
     if (taksitliYap && finalTotal > 0) {
       const yeniPlan = generateTaksitPlani(
         secilenMusteriId,
@@ -175,52 +139,13 @@ export default function YeniBakimKaydi({
       saveTaksitler(yeniPlan);
     }
 
-    // Reset Form
     setSecilenParcalar([]);
     setNot("");
     setOzelFiyat("");
     setOdendi(0);
     setTaksitliYap(false);
-    setIsCihazSatisi(false);
-    alert(isCihazSatisi ? "Cihaz satışı ve kaydı başarıyla oluşturuldu." : "Bakım kaydı başarıyla oluşturuldu.");
+    alert("İşlem / Bakım kaydı başarıyla oluşturuldu.");
     onNavigateToMusteriDetail(secilenMusteriId);
-  };
-
-  const applyPreset = (presetType: "5li" | "3li") => {
-    const targetKind = isAcik ? "açık" : "kapalı";
-    const selectedMap = new Map<number, number>();
-
-    parcalar.forEach((p) => {
-      const n = p.ad.toLowerCase();
-
-      if (presetType === "5li") {
-        if (n.includes("5li takım") || n.includes("5 li takım")) {
-          if (n.includes(targetKind) || (!n.includes("açık") && !n.includes("kapalı"))) {
-            selectedMap.set(p.id, 1);
-          }
-        } else if (n.includes(targetKind) && (n.includes("1.") || n.includes("2.") || n.includes("3."))) {
-          selectedMap.set(p.id, 1);
-        } else if (n === "membran" || n === "tatlandırıcı") {
-          selectedMap.set(p.id, 1);
-        }
-      } else if (presetType === "3li") {
-        if (n.includes("3 filtre") || n.includes("3lü takım") || n.includes("3 lü takım")) {
-          if (n.includes(targetKind) || (!n.includes("açık") && !n.includes("kapalı"))) {
-            selectedMap.set(p.id, 1);
-          }
-        } else if (n.includes(targetKind) && (n.includes("1.") || n.includes("2.") || n.includes("3."))) {
-          selectedMap.set(p.id, 1);
-        }
-      }
-    });
-
-    if (selectedMap.size > 0) {
-      const newItems: SecilenMiktar[] = [];
-      selectedMap.forEach((adet, parcaId) => newItems.push({ parcaId, adet }));
-      setSecilenParcalar(newItems);
-    } else {
-      alert("Uygun parça bulunamadı. Lütfen parçaları aşağıdaki listeden seçin.");
-    }
   };
 
   const selectedCustomer = musteriler.find((m) => m.id === secilenMusteriId);
@@ -229,7 +154,7 @@ export default function YeniBakimKaydi({
     <form onSubmit={handleSubmit} className="flex flex-col h-full bg-slate-50 overflow-y-auto p-4 pb-24 space-y-4">
       {/* Müşteri Seçici */}
       <div className="relative">
-        <label className="block text-xs font-bold text-slate-600 mb-1">Bakım Yapılan Müşteri</label>
+        <label className="block text-xs font-bold text-slate-600 mb-1">Müşteri Seçimi</label>
         <button
           type="button"
           onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -249,8 +174,6 @@ export default function YeniBakimKaydi({
                   onClick={() => {
                     setSecilenMusteriId(m.id);
                     setDropdownOpen(false);
-                    // Cihaz tipi değişince önceki filtre seçimlerini temizle
-                    setSecilenParcalar([]);
                   }}
                   className={`w-full text-left px-4 py-2 text-xs transition flex items-center justify-between gap-2 ${
                     secilenMusteriId === m.id ? "bg-sky-50 text-sky-700 font-semibold" : "text-slate-700 hover:bg-slate-50"
@@ -260,12 +183,6 @@ export default function YeniBakimKaydi({
                     <span className="font-semibold text-sm">{m.ad}</span>
                     {m.telefon && <span className="text-[10px] text-slate-400 mt-0.5">{m.telefon}</span>}
                   </div>
-                  {m.not === "Açık Cihaz" && (
-                    <span className="shrink-0 text-[8px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">AÇIK</span>
-                  )}
-                  {m.not === "Kapalı Cihaz" && (
-                    <span className="shrink-0 text-[8px] font-extrabold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">KAPALI</span>
-                  )}
                 </button>
               ))
             ) : (
@@ -277,71 +194,51 @@ export default function YeniBakimKaydi({
         )}
       </div>
 
-      {/* Tarih */}
+      {/* İşlem Tarihi */}
       <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1">Bakım Tarihi (Yıl-Ay-Gün)</label>
+        <label className="block text-xs font-bold text-slate-600 mb-1">İşlem Tarihi</label>
         <input
-          type="text"
+          type="date"
           required
-          placeholder="YYYY-MM-DD"
           value={tarih}
           onChange={(e) => setTarih(e.target.value)}
           className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
         />
       </div>
 
-      {/* Değişen Parçalar */}
+      {/* Katalogdan Ürün / Hizmet Seçimi */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-xs font-bold text-slate-600">Değişen Parçalar</label>
-          {/* Cihaz tipi bilgi rozeti */}
-          {cihazTipi === "açık" && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              AÇIK CİHAZ PARÇALARI
-            </span>
-          )}
-          {cihazTipi === "kapalı" && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-              KAPALI CİHAZ PARÇALARI
-            </span>
-          )}
-        </div>
-
-        {/* Temizle butonu - sadece seçim varsa görünür */}
-        {secilenParcalar.length > 0 && (
-          <div className="flex justify-end mb-2">
+          <label className="block text-xs font-bold text-slate-600">Katalogdan Ürün / Hizmet Seçimi (Otomatik Fiyatlandırılır)</label>
+          {secilenParcalar.length > 0 && (
             <button
               type="button"
               onClick={() => setSecilenParcalar([])}
-              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shrink-0 cursor-pointer"
+              className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shrink-0"
             >
               Temizle ({secilenParcalar.length})
             </button>
-          </div>
-        )}
-        {/* Arama kutusu */}
+          )}
+        </div>
+
         <div className="relative mb-1.5">
           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
           <input
             type="text"
-            placeholder="Parça ara..."
+            placeholder="Katalogda ürün veya hizmet ara..."
             value={parcaSearch}
             onChange={(e) => setParcaSearch(e.target.value)}
             className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
           />
         </div>
+
         <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden max-h-60 overflow-y-auto">
           {parcalar.length > 0 ? (() => {
-            // Önce cihaz tipine göre, sonra arama metnine göre filtrele
-            const filtered = parcalar
-              .filter((p) => shouldShowParca(p.ad))
-              .filter((p) => p.ad.toLowerCase().includes(parcaSearch.toLowerCase()));
+            const filtered = parcalar.filter((p) => p.ad.toLowerCase().includes(parcaSearch.toLowerCase()));
             if (filtered.length === 0) return (
               <div className="p-4 text-center text-xs text-slate-400 flex flex-col items-center gap-1.5">
                 <Search className="h-5 w-5 text-slate-300" />
-                <span>"{parcaSearch}" için parça bulunamadı.</span>
+                <span>"{parcaSearch}" için katalogda kayıt bulunamadı.</span>
               </div>
             );
             return filtered.map((p) => {
@@ -399,56 +296,27 @@ export default function YeniBakimKaydi({
           })() : (
             <div className="p-4 text-center text-xs text-slate-400 flex flex-col items-center gap-1.5">
               <AlertCircle className="h-5 w-5 text-slate-300" />
-              <span>Yedek parça bulunmuyor. Önce kataloğa parça ekleyin.</span>
+              <span>Katalog boş. Önce parça/ürün kataloğuna ekleyin.</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* İşlem Tipi Seçimi */}
+      {/* İşlem Notu */}
       <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1.5">İşlem Kategori / Tipi</label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setIsCihazSatisi(false)}
-            className={`py-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
-              !isCihazSatisi
-                ? "bg-sky-50 text-sky-700 border-sky-300"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            🛠️ Hizmet / Bakım
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsCihazSatisi(true)}
-            className={`py-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
-              isCihazSatisi
-                ? "bg-purple-50 text-purple-700 border-purple-300"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            📱 Cihaz Satışı
-          </button>
-        </div>
-      </div>
-
-      {/* Bakım / İşlem Notu */}
-      <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1">İşlem / Cihaz Satışı Açıklama Notu</label>
+        <label className="block text-xs font-bold text-slate-600 mb-1">Açıklama / Not (Opsiyonel)</label>
         <textarea
-          placeholder="İşlem notu veya satılan cihaz detayları..."
+          placeholder="İşlem ile ilgili not..."
           value={not}
           onChange={(e) => setNot(e.target.value)}
-          rows={3}
+          rows={2}
           className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
         />
       </div>
 
-      {/* Ödeme ve Taksit Seçenekleri */}
+      {/* Ödeme Durumu ve Taksitlendirme */}
       <div className="space-y-2">
-        <label className="block text-xs font-bold text-slate-600">Ödeme Durumu ve Taksitlendirme</label>
+        <label className="block text-xs font-bold text-slate-600">Ödeme Durumu</label>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -472,11 +340,11 @@ export default function YeniBakimKaydi({
             }`}
           >
             <span className={`h-2 w-2 rounded-full ${odendi === 0 && !taksitliYap ? "bg-rose-500" : "bg-slate-300"}`} />
-            Borç / Ödeme Bekliyor
+            Borç Kaydı (Ödeme Bekliyor)
           </button>
         </div>
 
-        {/* Taksit Tablosu Oluştur Toggle */}
+        {/* Taksit Planı Yap */}
         <div className="bg-sky-50/50 border border-sky-100 rounded-xl p-3 space-y-2">
           <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
             <input
@@ -484,7 +352,7 @@ export default function YeniBakimKaydi({
               checked={taksitliYap}
               onChange={(e) => {
                 setTaksitliYap(e.target.checked);
-                if (e.target.checked) setOdendi(0); // Taksitli olunca borca düşer
+                if (e.target.checked) setOdendi(0);
               }}
               className="h-4 w-4 text-sky-600 rounded focus:ring-sky-500"
             />
@@ -508,10 +376,10 @@ export default function YeniBakimKaydi({
         </div>
       </div>
 
-      {/* Fiyatlandırma ve İndirim Alanı */}
+      {/* Fiyat Tutar Özeti */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shrink-0">
         <div className="flex justify-between items-center text-xs">
-          <span className="font-semibold text-slate-600">Liste Fiyatı Toplamı:</span>
+          <span className="font-semibold text-slate-600">Katalog Tutar Toplamı:</span>
           <span className="font-bold text-slate-800 font-mono">
             {calculateTotal().toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
           </span>
@@ -523,7 +391,7 @@ export default function YeniBakimKaydi({
           </label>
           <input
             type="number"
-            placeholder={`Örn: ${calculateTotal() > 0 ? calculateTotal() - 300 : 1400}`}
+            placeholder={`Örn: ${calculateTotal() > 0 ? calculateTotal() - 200 : 1000}`}
             value={ozelFiyat}
             onChange={(e) => setOzelFiyat(e.target.value)}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
@@ -531,20 +399,19 @@ export default function YeniBakimKaydi({
         </div>
 
         <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
-          <span className="text-xs font-bold text-emerald-800">Kaydedilecek Son Tutar:</span>
+          <span className="text-xs font-bold text-emerald-800">Kaydedilecek Borç / İşlem Tutarı:</span>
           <span className="text-lg font-black text-emerald-600 font-mono">
             {(ozelFiyat && !isNaN(Number(ozelFiyat)) ? Number(ozelFiyat) : calculateTotal()).toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
           </span>
         </div>
       </div>
 
-      {/* Save Button */}
       <button
         type="submit"
         className="w-full bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white rounded-lg py-3 flex items-center justify-center gap-2 font-bold text-sm shadow-md transition"
       >
         <Save className="h-4.5 w-4.5" />
-        Bakım Kaydını Tamamla
+        Kaydı Tamamla
       </button>
     </form>
   );
