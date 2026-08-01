@@ -336,6 +336,7 @@ export default function App() {
           <div className={selectedMusteriId !== null ? "hidden" : "h-full"}>
             <MusteriListesi
               musteriler={musteriler}
+              bakimlar={bakimlar}
               onAddOrEdit={handleAddOrEditMusteri}
               onDelete={handleDeleteMusteri}
               onSelectMusteri={handleSelectMusteri}

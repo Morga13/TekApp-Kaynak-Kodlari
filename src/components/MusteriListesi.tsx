@@ -1,13 +1,14 @@
 import React, { useState } from "react";
-import { Musteri } from "../types";
+import { Musteri, Bakim } from "../types";
 import { Search, Plus, Phone, MapPin, FileText, Edit2, Trash2, Eye, X, Smartphone, MessageSquare, LocateFixed, Loader2 } from "lucide-react";
 import { Contacts } from "@capacitor-community/contacts";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from '@capacitor/core';
-
+import { getMusteriCariOzet } from "../utils/cari";
 
 interface MusteriListesiProps {
   musteriler: Musteri[];
+  bakimlar?: Bakim[];
   onAddOrEdit: (musteri: Omit<Musteri, "id"> & { id?: number }) => Promise<boolean>;
   onDelete: (id: number) => void;
   onSelectMusteri: (id: number) => void;
@@ -15,6 +16,7 @@ interface MusteriListesiProps {
 
 export default function MusteriListesi({
   musteriler,
+  bakimlar = [],
   onAddOrEdit,
   onDelete,
   onSelectMusteri
@@ -290,30 +292,43 @@ export default function MusteriListesi({
       {/* Customer List */}
       <div className="flex-1 p-4 overflow-y-auto space-y-3 pb-24 w-full max-w-full overflow-x-hidden">
         {filtered.length > 0 ? (
-          filtered.map((m) => (
-            <div
-              key={m.id}
-              className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition flex justify-between items-start gap-2.5 min-w-0 max-w-full overflow-hidden"
-            >
+          filtered.map((m) => {
+            const cari = getMusteriCariOzet(m.id, bakimlar);
+            return (
               <div
-                onClick={() => onSelectMusteri(m.id)}
-                className="flex-1 min-w-0 cursor-pointer space-y-1.5"
+                key={m.id}
+                className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition flex justify-between items-start gap-2.5 min-w-0 max-w-full overflow-hidden"
               >
-                <div className="flex items-center gap-2 flex-wrap min-w-0">
-                  <h3 className="font-bold text-slate-800 text-[15px] truncate max-w-full">{m.ad}</h3>
-                  {m.not?.includes("Açık Cihaz") && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                      <span className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
-                      AÇIK CİHAZ
-                    </span>
-                  )}
-                  {m.not?.includes("Kapalı Cihaz") && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
-                      <span className="h-1 w-1 rounded-full bg-blue-400" />
-                      KAPALI CİHAZ
-                    </span>
-                  )}
-                </div>
+                <div
+                  onClick={() => onSelectMusteri(m.id)}
+                  className="flex-1 min-w-0 cursor-pointer space-y-1.5"
+                >
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <h3 className="font-bold text-slate-800 text-[15px] truncate max-w-full">{m.ad}</h3>
+                    {cari.kalanBakiye > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                        Borç: {cari.kalanBakiye.toLocaleString("tr-TR")} ₺
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                        <span className="h-1 w-1 rounded-full bg-emerald-500" />
+                        Borcu Yok
+                      </span>
+                    )}
+                    {m.not?.includes("Açık Cihaz") && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                        <span className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
+                        AÇIK CİHAZ
+                      </span>
+                    )}
+                    {m.not?.includes("Kapalı Cihaz") && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                        <span className="h-1 w-1 rounded-full bg-blue-400" />
+                        KAPALI CİHAZ
+                      </span>
+                    )}
+                  </div>
                 {m.telefon && (
                   <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">
                     <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
@@ -387,7 +402,8 @@ export default function MusteriListesi({
                 </button>
               </div>
             </div>
-          ))
+          );
+        })
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3">

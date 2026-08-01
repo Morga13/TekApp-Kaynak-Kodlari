@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Musteri, Parca } from "../types";
 import { Check, ChevronDown, ChevronUp, Save, Plus, AlertCircle, Search } from "lucide-react";
+import { generateTaksitPlani, saveTaksitler } from "../utils/cari";
 
 interface SecilenMiktar {
   parcaId: number;
@@ -116,14 +117,18 @@ export default function YeniBakimKaydi({
     return sum;
   };
 
+  const [isCihazSatisi, setIsCihazSatisi] = useState(false);
+  const [taksitliYap, setTaksitliYap] = useState(false);
+  const [taksitSayisi, setTaksitSayisi] = useState(6);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!secilenMusteriId) {
       alert("Lütfen bir müşteri seçin.");
       return;
     }
-    if (secilenParcalar.length === 0) {
-      alert("Lütfen en az bir adet değişen parça seçin.");
+    if (secilenParcalar.length === 0 && !isCihazSatisi && (!ozelFiyat || Number(ozelFiyat) <= 0)) {
+      alert("Lütfen en az bir adet değişen parça seçin veya özel tutar girin.");
       return;
     }
     if (!tarih.trim()) {
@@ -131,7 +136,6 @@ export default function YeniBakimKaydi({
       return;
     }
 
-    // Prepare JSON parts list string
     const partsToSave = secilenParcalar
       .map((item) => {
         const p = parcalar.find((x) => x.id === item.parcaId);
@@ -148,21 +152,37 @@ export default function YeniBakimKaydi({
     const calculatedTotal = calculateTotal();
     const finalTotal = ozelFiyat && !isNaN(Number(ozelFiyat)) ? Number(ozelFiyat) : calculatedTotal;
 
+    const notPrefix = isCihazSatisi ? "📱 Cihaz Satışı — " : "";
+
     onSave({
       musteri_id: secilenMusteriId,
       tarih: tarih.trim(),
       parcalar: JSON.stringify(partsToSave),
       toplam: finalTotal,
-      not: not.trim(),
+      not: notPrefix + not.trim(),
       odendi: odendi
     });
+
+    // Eğer Taksitli Ödeme Planı seçildiyse taksitleri üret
+    if (taksitliYap && finalTotal > 0) {
+      const yeniPlan = generateTaksitPlani(
+        secilenMusteriId,
+        undefined,
+        finalTotal,
+        taksitSayisi,
+        tarih.trim() || new Date().toISOString().split("T")[0]
+      );
+      saveTaksitler(yeniPlan);
+    }
 
     // Reset Form
     setSecilenParcalar([]);
     setNot("");
     setOzelFiyat("");
     setOdendi(0);
-    alert("Bakım kaydı başarıyla oluşturuldu.");
+    setTaksitliYap(false);
+    setIsCihazSatisi(false);
+    alert(isCihazSatisi ? "Cihaz satışı ve kaydı başarıyla oluşturuldu." : "Bakım kaydı başarıyla oluşturuldu.");
     onNavigateToMusteriDetail(secilenMusteriId);
   };
 
@@ -385,11 +405,40 @@ export default function YeniBakimKaydi({
         </div>
       </div>
 
-      {/* Bakım Notu */}
+      {/* İşlem Tipi Seçimi */}
       <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1">Bakım Notu</label>
+        <label className="block text-xs font-bold text-slate-600 mb-1.5">İşlem Kategori / Tipi</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setIsCihazSatisi(false)}
+            className={`py-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+              !isCihazSatisi
+                ? "bg-sky-50 text-sky-700 border-sky-300"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            🛠️ Hizmet / Bakım
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsCihazSatisi(true)}
+            className={`py-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+              isCihazSatisi
+                ? "bg-purple-50 text-purple-700 border-purple-300"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            📱 Cihaz Satışı
+          </button>
+        </div>
+      </div>
+
+      {/* Bakım / İşlem Notu */}
+      <div>
+        <label className="block text-xs font-bold text-slate-600 mb-1">İşlem / Cihaz Satışı Açıklama Notu</label>
         <textarea
-          placeholder="Bakım notu..."
+          placeholder="İşlem notu veya satılan cihaz detayları..."
           value={not}
           onChange={(e) => setNot(e.target.value)}
           rows={3}
@@ -397,34 +446,65 @@ export default function YeniBakimKaydi({
         />
       </div>
 
-      {/* Ödeme Durumu Seçimi */}
-      <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1.5">Ödeme Durumu</label>
+      {/* Ödeme ve Taksit Seçenekleri */}
+      <div className="space-y-2">
+        <label className="block text-xs font-bold text-slate-600">Ödeme Durumu ve Taksitlendirme</label>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => setOdendi(1)}
+            onClick={() => { setOdendi(1); setTaksitliYap(false); }}
             className={`py-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
-              odendi === 1
+              odendi === 1 && !taksitliYap
                 ? "bg-emerald-50 text-emerald-700 border-emerald-300"
                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
             }`}
           >
-            <span className={`h-2 w-2 rounded-full ${odendi === 1 ? "bg-emerald-500" : "bg-slate-300"}`} />
-            Ödendi (Nakit/Kart)
+            <span className={`h-2 w-2 rounded-full ${odendi === 1 && !taksitliYap ? "bg-emerald-500" : "bg-slate-300"}`} />
+            Peşin Ödendi
           </button>
           <button
             type="button"
             onClick={() => setOdendi(0)}
             className={`py-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
-              odendi === 0
+              odendi === 0 && !taksitliYap
                 ? "bg-rose-50 text-rose-700 border-rose-300"
                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
             }`}
           >
-            <span className={`h-2 w-2 rounded-full ${odendi === 0 ? "bg-rose-500" : "bg-slate-300"}`} />
-            Ödeme Bekliyor
+            <span className={`h-2 w-2 rounded-full ${odendi === 0 && !taksitliYap ? "bg-rose-500" : "bg-slate-300"}`} />
+            Borç / Ödeme Bekliyor
           </button>
+        </div>
+
+        {/* Taksit Tablosu Oluştur Toggle */}
+        <div className="bg-sky-50/50 border border-sky-100 rounded-xl p-3 space-y-2">
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={taksitliYap}
+              onChange={(e) => {
+                setTaksitliYap(e.target.checked);
+                if (e.target.checked) setOdendi(0); // Taksitli olunca borca düşer
+              }}
+              className="h-4 w-4 text-sky-600 rounded focus:ring-sky-500"
+            />
+            <span>🗓️ Bu İşlem İçin Taksit Planı Oluştur</span>
+          </label>
+
+          {taksitliYap && (
+            <div className="pt-2 border-t border-sky-100 flex items-center gap-3">
+              <span className="text-xs font-medium text-slate-600">Taksit Sayısı:</span>
+              <select
+                value={taksitSayisi}
+                onChange={(e) => setTaksitSayisi(Number(e.target.value))}
+                className="px-3 py-1.5 bg-white border border-sky-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              >
+                {[2, 3, 4, 5, 6, 9, 12, 18, 24].map((n) => (
+                  <option key={n} value={n}>{n} Taksit ({n} Ay)</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
