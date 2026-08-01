@@ -5,6 +5,7 @@ import {
   Phone, MapPin, FileText, Calendar, Trash2, ShieldAlert, Plus, MessageSquare,
   Bell, X, Clock, CalendarCheck, Wallet
 } from "lucide-react";
+import { saveTahsilat } from "../utils/cari";
 
 interface MusteriDetayProps {
   musteriId: number;
@@ -70,7 +71,9 @@ export default function MusteriDetay({
   onUpdateOdemeDurumu
 }: MusteriDetayProps) {
   const musteri = musteriler.find((m) => m.id === musteriId);
-  const mBakimlar = bakimlar.filter((b) => b.musteri_id === musteriId);
+  const mBakimlar = bakimlar
+    .filter((b) => b.musteri_id === musteriId)
+    .sort((a, b) => b.tarih.localeCompare(a.tarih));
 
   // Hatırlatıcı state
   const [hatirlaticiModalOpen, setHatirlaticiModalOpen] = useState(false);
@@ -119,8 +122,6 @@ export default function MusteriDetay({
   useEffect(() => {
     const all = getHatirlaticilar();
     setAktifHatirlatici(all[musteriId] || null);
-    setTahsilatlar(getTahsilatlar());
-    setTaksitler(getTaksitler());
   }, [musteriId]);
 
   if (!musteri) {
@@ -173,11 +174,25 @@ export default function MusteriDetay({
     setAktifHatirlatici(null);
   };
 
+  const handleSaveTahsilat = () => {
+    const tutarNum = parseFloat(tahsilatTutar.replace(",", "."));
+    if (isNaN(tutarNum) || tutarNum <= 0) {
+      alert("Lütfen geçerli bir ödeme tutarı giriniz.");
+      return;
+    }
 
+    saveTahsilat({
+      musteri_id: musteriId,
+      tarih: tahsilatTarih || new Date().toISOString().split("T")[0],
+      tutar: tutarNum,
+      aciklama: "Tahsilat"
+    });
 
+    setTahsilatTutar("");
+    setOdemeModalOpen(false);
+    alert(`${musteri.ad} için ${tutarNum.toLocaleString('tr-TR')} ₺ ödeme başarıyla kaydedildi.`);
+  };
 
-
-  // Hatırlatıcı durumu
   const kalan = aktifHatirlatici ? kalanGun(aktifHatirlatici) : null;
   const hatirlaticiGecmis = kalan !== null && kalan < 0;
   const hatirlaticiYakin = kalan !== null && kalan >= 0 && kalan <= 14;
@@ -198,59 +213,72 @@ export default function MusteriDetay({
       <div className="bg-slate-800 text-white px-4 py-4 flex flex-col gap-3 shadow-md shrink-0">
         <div className="flex items-center gap-3">
           <div className="h-11 w-11 rounded-full bg-sky-400 text-white font-bold text-lg flex items-center justify-center">
-            {musteri.ad ? musteri.ad[0]?.toUpperCase() || '?' : '?'}
+            {musteri.ad[0].toUpperCase()}
           </div>
-          <div>
-            <h2 className="font-bold text-base text-slate-100">{musteri.ad}</h2>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-bold truncate">{musteri.ad}</h2>
             {musteri.telefon && (
-              <a
-                href={`tel:${musteri.telefon}`}
-                className="flex items-center gap-1.5 text-xs text-sky-300 font-semibold mt-0.5"
-              >
-                <Phone className="h-3.5 w-3.5" />
-                <span>{musteri.telefon}</span>
-              </a>
+              <p className="text-xs text-slate-300 font-mono flex items-center gap-1.5 mt-0.5">
+                <Phone className="h-3 w-3 text-slate-400" />
+                {musteri.telefon}
+              </p>
             )}
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {musteri.telefon && (
+              <button
+                onClick={() => {
+                  let raw = musteri.telefon.replace(/\D/g, "");
+                  if (raw.startsWith("0")) raw = "9" + raw;
+                  if (!raw.startsWith("90") && raw.length === 10) raw = "90" + raw;
+                  safeOpenUrl(`https://wa.me/${raw}`);
+                }}
+                className="p-2 min-h-[44px] min-w-[44px] bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-xl transition flex items-center justify-center shadow-xs"
+                title="WhatsApp Mesaj Gönder"
+              >
+                <MessageSquare className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              onClick={() => setOdemeModalOpen(true)}
+              className="p-2 min-h-[44px] px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              title="Ödeme Al"
+            >
+              <Wallet className="h-4 w-4" />
+              Ödeme Al
+            </button>
+            <button
+              onClick={onBack}
+              className="px-3 py-2 min-h-[44px] bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center shrink-0"
+            >
+              Geri
+            </button>
           </div>
         </div>
 
-        {/* Adres ve Notlar */}
-        <div className="space-y-1.5 border-t border-slate-700/60 pt-2.5 text-xs text-slate-300">
-          {musteri.adres && (
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{musteri.adres}</span>
+        {(musteri.adres || musteri.not) && (
+          <div className="space-y-1 pt-1 border-t border-slate-700/60 text-xs text-slate-300">
+            {musteri.adres && (
+              <div className="flex items-start gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                <span className="flex-1">{musteri.adres}</span>
+                <button
+                  onClick={() => safeOpenUrl(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(musteri.adres)}`)}
+                  className="text-sky-300 hover:underline text-[11px] shrink-0 font-medium"
+                >
+                  Yol Tarifi
+                </button>
               </div>
-              <button
-                onClick={() => safeOpenUrl(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(musteri.adres)}`)}
-                className="text-[10px] font-bold text-sky-300 hover:text-sky-200 bg-sky-500/20 px-2 py-0.5 rounded-md border border-sky-400/30 shrink-0 transition"
-              >
-                Harita
-              </button>
-            </div>
-          )}
-          {musteri.not && (
-            <div className="flex items-start gap-2">
-              {musteri.not === "Açık Cihaz" ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  AÇIK CİHAZ
-                </span>
-              ) : musteri.not === "Kapalı Cihaz" ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-slate-500/20 text-slate-400 border border-slate-500/30">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                  KAPALI CİHAZ
-                </span>
-              ) : (
-                <>
-                  <FileText className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
-                  <span className="leading-relaxed italic text-slate-300">{musteri.not}</span>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+            {musteri.not && (
+              <div className="flex items-start gap-1.5 italic text-slate-400">
+                <FileText className="h-3.5 w-3.5 text-slate-500 shrink-0 mt-0.5" />
+                <span>{musteri.not}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Ana İçerik Alanı */}
@@ -329,102 +357,80 @@ export default function MusteriDetay({
 
         {/* GEÇMİŞ BAKIMLAR VE HİZMETLER */}
         <div className="space-y-3">
-            <div className="flex justify-between items-center px-1 shrink-0">
-              <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Geçmiş Hizmet & Satış Kayıtları</h3>
-              <button
-                onClick={() => onNewBakimClick(musteri.id)}
-                className="flex items-center gap-1 text-xs font-bold text-sky-600 hover:text-sky-700 py-1 px-2.5 bg-sky-50 rounded-lg border border-sky-100 transition"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Yeni Kayıt Ekle
-              </button>
-            </div>
+          <div className="flex justify-between items-center px-1 shrink-0">
+            <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Geçmiş Hizmet & Satış Kayıtları</h3>
+            <button
+              onClick={() => onNewBakimClick(musteri.id)}
+              className="flex items-center gap-1 text-xs font-bold text-sky-600 hover:text-sky-700 py-1 px-2.5 bg-sky-50 rounded-lg border border-sky-100 transition"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Yeni Kayıt Ekle
+            </button>
+          </div>
 
-            {mBakimlar.length > 0 ? (
-              mBakimlar.map((b) => {
-                const parcalar = parseParts(b.parcalar);
-                const isSatisi = b.is_cihaz_satisi || b.not?.toLowerCase().includes("cihaz satışı");
-                return (
-                  <div key={b.id} className="bg-white border border-slate-100 rounded-xl p-4 shadow-xs relative space-y-2.5">
-                    <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
-                        <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{b.tarih}</span>
-                        {isSatisi && (
-                          <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-1.5 py-0.5 rounded ml-1">
-                            📱 Cihaz Satışı
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {musteri.telefon && (
-                          <button
-                            onClick={() => {
-                              let rawPhone = musteri.telefon.replace(/\D/g, "");
-                              if (rawPhone.startsWith("0")) rawPhone = "9" + rawPhone;
-                              if (!rawPhone.startsWith("90") && rawPhone.length === 10) rawPhone = "90" + rawPhone;
-                              const parcaListStr = parcalar.map(p => `${p.ad} (x${p.adet || 1})`).join(", ");
-                              const msg = `Sayın ${musteri.ad},\n${b.tarih} tarihinde cihazınıza aşağıdaki işlem yapılmıştır:\n\nİşlem / Parçalar: ${parcaListStr}\nToplam Tutar: ${b.toplam.toLocaleString('tr-TR')} TL\n\n📌 Güncel Kalan Net Bakiyeniz: ${cariOzet.kalanBakiye.toLocaleString('tr-TR')} TL\n\nBizi tercih ettiğiniz için teşekkür ederiz.`;
-                              safeOpenUrl(`https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`);
-                            }}
-                            className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md text-[10px] font-bold transition flex items-center gap-1"
-                            title="WhatsApp Servis Fişi Gönder"
-                          >
-                            <MessageSquare className="h-3 w-3" />
-                            Fiş Gönder
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            if (confirm("Bu kayıt silinsin mi?")) {
-                              onDeleteBakim(b.id);
-                            }
-                          }}
-                          className="p-1 text-slate-400 hover:text-rose-500 hover:bg-slate-50 rounded transition"
-                          title="Sil"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+          {mBakimlar.length > 0 ? (
+            mBakimlar.map((b) => {
+              const parcalar = parseParts(b.parcalar);
+              return (
+                <div key={b.id} className="bg-white border border-slate-100 rounded-xl p-4 shadow-xs relative space-y-2.5">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                      <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                      <span>{b.tarih}</span>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <span className="text-[11px] font-bold text-slate-400 block tracking-wider uppercase">Açıklama / Parçalar:</span>
-                      <div className="divide-y divide-slate-50">
-                        {parcalar.map((p, idx) => (
-                          <div key={idx} className="flex justify-between py-1 text-xs">
-                            <span className="text-slate-700 font-medium">{p.ad} <span className="text-slate-400 text-[10px] font-bold">x{p.adet || 1}</span></span>
-                            <span className="text-slate-500 font-mono">
-                              {((p.fiyat || 0) * (p.adet || 1)).toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {b.not && (
-                      <div className="bg-slate-50 rounded-lg p-2.5 text-xs text-slate-600 border border-slate-100">
-                        <span className="font-bold text-slate-500 block mb-0.5 text-[10px]">Not:</span>
-                        <p className="leading-relaxed">{b.not}</p>
-                      </div>
-                    )}
-
-                    <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-right">
-                      <span className="text-xs font-bold text-slate-400 text-[10px]">İşlem Tutarı:</span>
-                      <span className="text-sm font-extrabold text-slate-800 font-mono">
-                        {b.toplam.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
-                      </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          if (confirm("Bu hizmet kaydını silmek istediğinize emin misiniz?")) {
+                            onDeleteBakim(b.id);
+                          }
+                        }}
+                        className="p-1 text-slate-300 hover:text-rose-500 transition"
+                        title="Sil"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
-                );
-              })
-            ) : (
-              <p className="text-xs text-slate-400 italic bg-white p-6 rounded-xl border border-slate-100 text-center">
-                Henüz hizmet kaydı bulunmuyor.
-              </p>
-            )}
-          </div>
+
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                      Kullanılan Ürünler / Parçalar:
+                    </span>
+                    <div className="space-y-1">
+                      {parcalar.map((p, idx) => (
+                        <div key={idx} className="flex justify-between text-xs bg-slate-50 p-2 rounded-lg font-medium text-slate-700">
+                          <span>{p.ad} x{p.adet}</span>
+                          <span className="font-mono text-slate-500">{(p.fiyat * p.adet).toLocaleString("tr-TR")} ₺</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {b.not && (
+                    <div className="bg-slate-50 rounded-lg p-2.5 text-xs text-slate-600 border border-slate-100">
+                      <span className="font-bold text-slate-500 block mb-0.5 text-[10px]">Not:</span>
+                      <p className="leading-relaxed">{b.not}</p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-right">
+                    <span className="text-xs font-bold text-slate-400 text-[10px]">İşlem Tutarı:</span>
+                    <span className="text-sm font-extrabold text-slate-800 font-mono">
+                      {b.toplam.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <p className="text-xs text-slate-400 italic bg-white p-6 rounded-xl border border-slate-100 text-center">
+              Henüz hizmet kaydı bulunmuyor.
+            </p>
+          )}
         </div>
+      </div>
 
       {/* 💵 ÖDEME AL / TAHSİLAT MODALI */}
       {odemeModalOpen && (
@@ -474,92 +480,10 @@ export default function MusteriDetay({
                   İptal
                 </button>
                 <button
-                  onClick={handleSaveTahsilatKaydi}
+                  onClick={handleSaveTahsilat}
                   className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition"
                 >
                   Ödemeyi Kaydet
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 🗓️ TAKSİT PLANI OLUŞTURMA MODALI */}
-      {taksitModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden space-y-4">
-            <div className="p-4 bg-slate-800 text-white flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-sky-400" />
-                <div>
-                  <h3 className="font-bold text-sm text-slate-100">Yeni Taksit Planı Oluştur</h3>
-                  <p className="text-[11px] text-slate-300">{musteri.ad}</p>
-                </div>
-              </div>
-              <button onClick={() => setTaksitModalOpen(false)} className="p-1.5 rounded-full text-slate-400 hover:text-white transition">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Taksitlendirilecek Toplam Tutar (₺)</label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="Örn: 6000"
-                  value={taksitToplamTutar}
-                  onChange={(e) => setTaksitToplamTutar(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-extrabold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Taksit Sayısı (Ay)</label>
-                  <select
-                    value={taksitSayisi}
-                    onChange={(e) => setTaksitSayisi(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                  >
-                    {[2, 3, 4, 5, 6, 9, 12, 18, 24].map((n) => (
-                      <option key={n} value={n}>{n} Taksit ({n} Ay)</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">İlk Vade Tarihi</label>
-                  <input
-                    type="date"
-                    value={taksitBaslangicVade}
-                    onChange={(e) => setTaksitBaslangicVade(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {Number(taksitToplamTutar) > 0 && (
-                <div className="bg-sky-50 border border-sky-100 rounded-xl p-3 text-center">
-                  <span className="text-[11px] font-semibold text-sky-800 block">Hesaplanan Aylık Taksit Tutarı</span>
-                  <span className="text-sm font-extrabold text-sky-900 font-mono">
-                    {Math.round(Number(taksitToplamTutar) / taksitSayisi).toLocaleString("tr-TR", { style: "currency", currency: "TRY" })} / ay
-                  </span>
-                </div>
-              )}
-
-              <div className="pt-2 flex gap-2">
-                <button
-                  onClick={() => setTaksitModalOpen(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
-                >
-                  İptal
-                </button>
-                <button
-                  onClick={handleCreateTaksitPlani}
-                  className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-xs transition"
-                >
-                  Planı Oluştur
                 </button>
               </div>
             </div>
