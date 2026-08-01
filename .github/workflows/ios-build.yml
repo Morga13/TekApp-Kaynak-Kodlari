@@ -27,8 +27,20 @@ jobs:
       - name: Sync Capacitor iOS on macOS
         run: npx cap sync ios
 
+      - name: Resolve SPM Dependencies
+        run: xcodebuild -resolvePackageDependencies -workspace ios/App/App.xcworkspace -scheme App || xcodebuild -resolvePackageDependencies -project ios/App/App.xcodeproj -scheme App
+
       - name: Build iOS App
         run: |
+          xcodebuild -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            COMPILER_INDEX_STORE_ENABLE=NO || \
           xcodebuild -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Debug \
