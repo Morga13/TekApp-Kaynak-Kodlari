@@ -32,11 +32,12 @@ jobs:
           xcodebuild -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Release \
-            -destination 'generic/platform=iOS' \
+            -sdk iphonesimulator \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" \
+            -skipPackagePluginValidation
 
       - name: Package IPA
         run: |
