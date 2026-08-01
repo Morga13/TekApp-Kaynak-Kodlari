@@ -24,8 +24,8 @@ jobs:
       - name: Build Web App
         run: npm run build
 
-      - name: Fix Package.swift Paths
-        run: node -e "const fs=require('fs'); const p='ios/App/CapApp-SPM/Package.swift'; if(fs.existsSync(p)){ fs.writeFileSync(p, fs.readFileSync(p,'utf8').replace(/\\\\/g, '/')); }"
+      - name: Sync Capacitor iOS on macOS
+        run: npx cap sync ios
 
       - name: Build iOS App
         run: |
@@ -33,13 +33,11 @@ jobs:
             -scheme App \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            -skipPackagePluginValidation \
-            -allowProvisioningUpdates
+            COMPILER_INDEX_STORE_ENABLE=NO
 
       - name: Package IPA
         run: |
