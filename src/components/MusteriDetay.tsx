@@ -91,7 +91,7 @@ export default function MusteriDetay({
   // Cari ve Tahsilat State
   const [tahsilatlar, setTahsilatlar] = useState<Tahsilat[]>([]);
   const [taksitler, setTaksitler] = useState<Taksit[]>([]);
-  const [activeSubTab, setActiveSubTab] = useState<"ekstre" | "taksitler" | "bakimlar">("ekstre");
+  const [activeSubTab, setActiveSubTab] = useState<"bakimlar" | "taksitler">("bakimlar");
 
   // Tahsilat Modal State
   const [odemeModalOpen, setOdemeModalOpen] = useState(false);
@@ -450,15 +450,15 @@ export default function MusteriDetay({
         {/* 📑 SEKME SEÇİCİ */}
         <div className="flex border border-slate-200 bg-white rounded-xl p-1 gap-1 shadow-2xs">
           <button
-            onClick={() => setActiveSubTab("ekstre")}
+            onClick={() => setActiveSubTab("bakimlar")}
             className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-              activeSubTab === "ekstre"
+              activeSubTab === "bakimlar"
                 ? "bg-slate-800 text-white shadow-xs"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
             }`}
           >
-            <History className="h-3.5 w-3.5" />
-            Cari Ekstre
+            <Calendar className="h-3.5 w-3.5" />
+            Bakım ve Hizmetler ({mBakimlar.length})
           </button>
           <button
             onClick={() => setActiveSubTab("taksitler")}
@@ -469,79 +469,9 @@ export default function MusteriDetay({
             }`}
           >
             <CreditCard className="h-3.5 w-3.5" />
-            Taksitler ({mTaksitler.length})
-          </button>
-          <button
-            onClick={() => setActiveSubTab("bakimlar")}
-            className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-              activeSubTab === "bakimlar"
-                ? "bg-slate-800 text-white shadow-xs"
-                : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-            }`}
-          >
-            <Calendar className="h-3.5 w-3.5" />
-            Bakımlar ({mBakimlar.length})
+            Taksit Planı ({mTaksitler.length})
           </button>
         </div>
-
-        {/* 1️⃣ SEKME: CARİ EKSTRE (Aktivite Akışı / Timeline) */}
-        {activeSubTab === "ekstre" && (
-          <div className="space-y-3">
-            <div className="flex justify-between items-center px-1">
-              <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Cari Ekstre Hareketleri</h3>
-              <span className="text-[11px] text-slate-400 font-semibold">{cariHareketler.length} Kayıt</span>
-            </div>
-
-            {cariHareketler.length > 0 ? (
-              <div className="space-y-2">
-                {cariHareketler.map((h) => (
-                  <div key={h.id} className="bg-white rounded-xl p-3.5 border border-slate-100 shadow-2xs flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        h.tip === "BORC"
-                          ? "bg-rose-50 text-rose-600 border border-rose-100"
-                          : "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                      }`}>
-                        {h.tip === "BORC" ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownLeft className="h-5 w-5" />}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-slate-800 truncate">{h.baslik}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">{h.tarih}</span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 truncate mt-0.5">{h.aciklama}</p>
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className={`text-sm font-extrabold font-mono ${
-                        h.tip === "BORC" ? "text-rose-600" : "text-emerald-600"
-                      }`}>
-                        {h.tip === "BORC" ? "+" : "-"}{h.tutar.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
-                      </span>
-                      {h.kategori === "TAHSILAT" && (
-                        <button
-                          onClick={() => {
-                            if (confirm("Bu tahsilat kaydını silmek istediğinize emin misiniz? Bakiye yeniden hesaplanacaktır.")) {
-                              handleDeleteTahsilat(String(h.ref_id || h.id));
-                            }
-                          }}
-                          className="block text-[10px] text-rose-500 hover:underline mt-0.5 ml-auto font-semibold"
-                        >
-                          Sil
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 italic bg-white p-6 rounded-xl border border-slate-100 text-center">
-                Henüz cari hesap hareketi bulunmuyor.
-              </p>
-            )}
-          </div>
-        )}
 
         {/* 2️⃣ SEKME: TAKSİT PLANI MODÜLÜ */}
         {activeSubTab === "taksitler" && (

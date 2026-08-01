@@ -384,19 +384,6 @@ export default function MusteriListesi({
               </div>
 
               <div className="flex items-center gap-1 border-l border-slate-100 pl-2 shrink-0">
-                {cari.kalanBakiye > 0 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenQuickOdeme(m);
-                    }}
-                    className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs active:scale-95 shrink-0 mr-1"
-                    title="Bu müşteri için ödeme / tahsilat gir"
-                  >
-                    <Wallet className="h-3.5 w-3.5" />
-                    Ödeme Al
-                  </button>
-                )}
                 {m.telefon && (
                   <button
                     onClick={() => {
