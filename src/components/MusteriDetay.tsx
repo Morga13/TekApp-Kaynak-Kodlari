@@ -3,9 +3,9 @@ import { Capacitor } from '@capacitor/core';
 import { Musteri, Bakim, DeğişenParça } from "../types";
 import {
   Phone, MapPin, FileText, Calendar, Trash2, ShieldAlert, Plus, MessageSquare,
-  Bell, X, Clock, CalendarCheck, Wallet
+  Bell, X, Clock, CalendarCheck, Wallet, ChevronLeft
 } from "lucide-react";
-import { saveTahsilat } from "../utils/cari";
+import { saveTahsilat, getMusteriCariOzet } from "../utils/cari";
 
 interface MusteriDetayProps {
   musteriId: number;
@@ -197,6 +197,8 @@ export default function MusteriDetay({
   const hatirlaticiGecmis = kalan !== null && kalan < 0;
   const hatirlaticiYakin = kalan !== null && kalan >= 0 && kalan <= 14;
 
+  const cariOzet = getMusteriCariOzet(musteriId, bakimlar);
+
   return (
     <div
       className="flex flex-col h-full bg-slate-50"
@@ -211,14 +213,21 @@ export default function MusteriDetay({
     >
       {/* Profil Header */}
       <div className="bg-slate-800 text-white px-4 py-4 flex flex-col gap-3 shadow-md shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-full bg-sky-400 text-white font-bold text-lg flex items-center justify-center">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={onBack}
+            className="p-1.5 min-h-[44px] min-w-[44px] bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white rounded-xl transition flex items-center justify-center shrink-0"
+            title="Geri Dön"
+          >
+            <ChevronLeft className="h-5 w-5 text-white" />
+          </button>
+          <div className="h-10 w-10 rounded-full bg-sky-400 text-white font-bold text-base flex items-center justify-center shrink-0">
             {musteri.ad[0].toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold truncate">{musteri.ad}</h2>
+            <h2 className="text-base font-bold truncate">{musteri.ad}</h2>
             {musteri.telefon && (
-              <p className="text-xs text-slate-300 font-mono flex items-center gap-1.5 mt-0.5">
+              <p className="text-xs text-slate-300 font-mono flex items-center gap-1 mt-0.5">
                 <Phone className="h-3 w-3 text-slate-400" />
                 {musteri.telefon}
               </p>
@@ -248,12 +257,15 @@ export default function MusteriDetay({
               <Wallet className="h-4 w-4" />
               Ödeme Al
             </button>
-            <button
-              onClick={onBack}
-              className="px-3 py-2 min-h-[44px] bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center shrink-0"
-            >
-              Geri
-            </button>
+            {cariOzet.kalanBakiye > 0 ? (
+              <div className="px-2.5 py-2 min-h-[44px] bg-rose-500/20 border border-rose-400/40 text-rose-300 rounded-xl text-xs font-extrabold flex items-center justify-center shrink-0 font-mono">
+                🔴 {cariOzet.kalanBakiye.toLocaleString("tr-TR")} ₺
+              </div>
+            ) : (
+              <div className="px-2.5 py-2 min-h-[44px] bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 rounded-xl text-xs font-extrabold flex items-center justify-center shrink-0">
+                🟢 Borcu Yok
+              </div>
+            )}
           </div>
         </div>
 
