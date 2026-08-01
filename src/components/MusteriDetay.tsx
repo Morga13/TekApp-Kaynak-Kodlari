@@ -1,21 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Capacitor } from '@capacitor/core';
-import { Musteri, Bakim, DeğişenParça, Tahsilat, Taksit, CariHareket } from "../types";
+import { Musteri, Bakim, DeğişenParça } from "../types";
 import {
   Phone, MapPin, FileText, Calendar, Trash2, ShieldAlert, Plus, MessageSquare,
-  Bell, X, Clock, CalendarCheck, Wallet, CreditCard, History, ArrowUpRight, ArrowDownLeft, CheckCircle2
+  Bell, X, Clock, CalendarCheck, Wallet
 } from "lucide-react";
-import {
-  getMusteriCariOzet,
-  getMusteriCariHareketleri,
-  getTahsilatlar,
-  saveTahsilat,
-  deleteTahsilat,
-  getTaksitler,
-  saveTaksitler,
-  updateTaksitDurumu,
-  generateTaksitPlani
-} from "../utils/cari";
 
 interface MusteriDetayProps {
   musteriId: number;
@@ -88,22 +77,10 @@ export default function MusteriDetay({
   const [ozelTarih, setOzelTarih] = useState("");
   const [aktifHatirlatici, setAktifHatirlatici] = useState<string | null>(null);
 
-  // Cari ve Tahsilat State
-  const [tahsilatlar, setTahsilatlar] = useState<Tahsilat[]>([]);
-  const [taksitler, setTaksitler] = useState<Taksit[]>([]);
-  const [activeSubTab, setActiveSubTab] = useState<"bakimlar" | "taksitler">("bakimlar");
-
   // Tahsilat Modal State
   const [odemeModalOpen, setOdemeModalOpen] = useState(false);
   const [tahsilatTutar, setTahsilatTutar] = useState("");
   const [tahsilatTarih, setTahsilatTarih] = useState(new Date().toISOString().split("T")[0]);
-  const [tahsilatAciklama, setTahsilatAciklama] = useState("Nakit Tahsilat");
-
-  // Taksit Planı Modal State
-  const [taksitModalOpen, setTaksitModalOpen] = useState(false);
-  const [taksitToplamTutar, setTaksitToplamTutar] = useState("");
-  const [taksitSayisi, setTaksitSayisi] = useState(6);
-  const [taksitBaslangicVade, setTaksitBaslangicVade] = useState(new Date().toISOString().split("T")[0]);
 
   // --- Swipe-Back Gesture ---
   const touchStartX = useRef<number>(0);
@@ -196,65 +173,9 @@ export default function MusteriDetay({
     setAktifHatirlatici(null);
   };
 
-  // ─────────────────────────────────────────
-  // CARİ & TAHSİLAT HESAPLAMALARI
-  // ─────────────────────────────────────────
-  const cariOzet = getMusteriCariOzet(musteriId, bakimlar, tahsilatlar);
-  const cariHareketler = getMusteriCariHareketleri(musteriId, bakimlar, tahsilatlar);
-  const mTaksitler = taksitler.filter(t => t.musteri_id === musteriId).sort((a, b) => a.taksit_no - b.taksit_no);
 
-  const handleSaveTahsilatKaydi = () => {
-    const tutarNum = parseFloat(tahsilatTutar.replace(",", "."));
-    if (isNaN(tutarNum) || tutarNum <= 0) {
-      alert("Lütfen geçerli bir ödeme tutarı giriniz.");
-      return;
-    }
 
-    const yeniTahsilatlar = saveTahsilat({
-      musteri_id: musteriId,
-      tarih: tahsilatTarih || new Date().toISOString().split("T")[0],
-      tutar: tutarNum,
-      aciklama: tahsilatAciklama.trim() || "Nakit Tahsilat"
-    });
 
-    setTahsilatlar(yeniTahsilatlar);
-    setTahsilatTutar("");
-    setOdemeModalOpen(false);
-  };
-
-  const handleDeleteTahsilat = (id: string) => {
-    const yeni = deleteTahsilat(id);
-    setTahsilatlar(yeni);
-  };
-
-  const handleToggleTaksitOdendi = (taksit: Taksit) => {
-    const yeniOdendiDurumu = !taksit.odendi;
-    const res = updateTaksitDurumu(taksit.id, yeniOdendiDurumu);
-    setTaksitler(res.taksitler);
-    setTahsilatlar(res.tahsilatlar);
-  };
-
-  const handleCreateTaksitPlani = () => {
-    const tutarNum = parseFloat(taksitToplamTutar.replace(",", "."));
-    if (isNaN(tutarNum) || tutarNum <= 0) {
-      alert("Lütfen geçerli bir taksit toplam tutarı giriniz.");
-      return;
-    }
-
-    const yeniPlan = generateTaksitPlani(
-      musteriId,
-      undefined,
-      tutarNum,
-      taksitSayisi,
-      taksitBaslangicVade || new Date().toISOString().split("T")[0]
-    );
-
-    const guncelTaksitler = saveTaksitler(yeniPlan);
-    setTaksitler(guncelTaksitler);
-    setTaksitModalOpen(false);
-    setTaksitToplamTutar("");
-    setActiveSubTab("taksitler");
-  };
 
   // Hatırlatıcı durumu
   const kalan = aktifHatirlatici ? kalanGun(aktifHatirlatici) : null;
@@ -335,47 +256,6 @@ export default function MusteriDetay({
       {/* Ana İçerik Alanı */}
       <div className="flex-1 p-4 overflow-y-auto space-y-4 pb-24">
 
-        {/* 💳 CARİ ÖZET KARTI (Net Bakiye & Metrikler) */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs shrink-0 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-              <Wallet className="h-4 w-4 text-sky-500" />
-              Cari Bakiye Özeti
-            </div>
-            <button
-              onClick={() => {
-                setTahsilatTutar(cariOzet.kalanBakiye > 0 ? String(cariOzet.kalanBakiye) : "");
-                setOdemeModalOpen(true);
-              }}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs active:scale-95"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Ödeme Al / Tahsilat
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 text-center pt-1 border-t border-slate-100">
-            <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-100">
-              <span className="text-[10px] font-semibold text-slate-400 block">Toplam Alacak</span>
-              <span className="text-xs font-extrabold text-slate-800 font-mono">
-                {cariOzet.toplamAlacak.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
-              </span>
-            </div>
-            <div className="bg-emerald-50/60 rounded-lg p-2.5 border border-emerald-100">
-              <span className="text-[10px] font-semibold text-emerald-600 block">Tahsil Edilen</span>
-              <span className="text-xs font-extrabold text-emerald-700 font-mono">
-                {cariOzet.tahsilEdilen.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
-              </span>
-            </div>
-            <div className={`rounded-lg p-2.5 border ${cariOzet.kalanBakiye > 0 ? "bg-rose-50/70 border-rose-200" : "bg-emerald-50/30 border-emerald-100"}`}>
-              <span className={`text-[10px] font-semibold block ${cariOzet.kalanBakiye > 0 ? "text-rose-600 font-bold" : "text-emerald-600"}`}>Kalan Bakiye</span>
-              <span className={`text-xs font-extrabold font-mono ${cariOzet.kalanBakiye > 0 ? "text-rose-700" : "text-emerald-700"}`}>
-                {cariOzet.kalanBakiye.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
-              </span>
-            </div>
-          </div>
-        </div>
-
         {/* 🔔 Bakım Hatırlatıcısı Kartı */}
         <div className={`rounded-xl border p-3 shadow-xs transition ${
           hatirlaticiGecmis
@@ -447,114 +327,8 @@ export default function MusteriDetay({
           </div>
         </div>
 
-        {/* 📑 SEKME SEÇİCİ */}
-        <div className="flex border border-slate-200 bg-white rounded-xl p-1 gap-1 shadow-2xs">
-          <button
-            onClick={() => setActiveSubTab("bakimlar")}
-            className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-              activeSubTab === "bakimlar"
-                ? "bg-slate-800 text-white shadow-xs"
-                : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-            }`}
-          >
-            <Calendar className="h-3.5 w-3.5" />
-            Bakım ve Hizmetler ({mBakimlar.length})
-          </button>
-          <button
-            onClick={() => setActiveSubTab("taksitler")}
-            className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-              activeSubTab === "taksitler"
-                ? "bg-slate-800 text-white shadow-xs"
-                : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-            }`}
-          >
-            <CreditCard className="h-3.5 w-3.5" />
-            Taksit Planı ({mTaksitler.length})
-          </button>
-        </div>
-
-        {/* 2️⃣ SEKME: TAKSİT PLANI MODÜLÜ */}
-        {activeSubTab === "taksitler" && (
-          <div className="space-y-3">
-            <div className="flex justify-between items-center px-1">
-              <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Cihaz / Hizmet Taksit Tablosu</h3>
-              <button
-                onClick={() => {
-                  setTaksitToplamTutar(cariOzet.kalanBakiye > 0 ? String(cariOzet.kalanBakiye) : "");
-                  setTaksitModalOpen(true);
-                }}
-                className="text-xs font-bold text-sky-600 hover:text-sky-700 bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-100 transition flex items-center gap-1"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Taksit Planı Ekle
-              </button>
-            </div>
-
-            {mTaksitler.length > 0 ? (
-              <div className="space-y-2">
-                {mTaksitler.map((t) => (
-                  <div
-                    key={t.id}
-                    className={`bg-white rounded-xl p-3.5 border transition flex items-center justify-between gap-3 shadow-2xs ${
-                      t.odendi ? "border-emerald-200 bg-emerald-50/20" : "border-slate-200"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-extrabold text-xs shrink-0 ${
-                        t.odendi ? "bg-emerald-100 text-emerald-800" : "bg-sky-100 text-sky-800"
-                      }`}>
-                        {t.taksit_no}/{t.toplam_taksit}
-                      </div>
-                      <div className="min-w-0">
-                        <span className="font-bold text-xs text-slate-800 block font-mono">
-                          {t.taksit_no}. Taksit: {t.tutar.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
-                        </span>
-                        <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1 mt-0.5">
-                          <Calendar className="h-3 w-3 text-slate-400" />
-                          Vade: {t.vade_tarihi}
-                          {t.odendi && t.odeme_tarihi && (
-                            <span className="text-emerald-600 font-bold ml-1">({t.odeme_tarihi} ödendi)</span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="shrink-0">
-                      <button
-                        onClick={() => handleToggleTaksitOdendi(t)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition flex items-center gap-1.5 border shadow-2xs active:scale-95 ${
-                          t.odendi
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                            : "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
-                        }`}
-                      >
-                        <CheckCircle2 className={`h-3.5 w-3.5 ${t.odendi ? "text-emerald-600" : "text-amber-600"}`} />
-                        {t.odendi ? "ÖDENDİ" : "ÖDENDİ YAP"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white p-6 rounded-xl border border-slate-100 text-center space-y-2">
-                <p className="text-xs text-slate-500 font-medium">Bu müşteri için taksitli ödeme planı bulunmuyor.</p>
-                <button
-                  onClick={() => {
-                    setTaksitToplamTutar(cariOzet.kalanBakiye > 0 ? String(cariOzet.kalanBakiye) : "");
-                    setTaksitModalOpen(true);
-                  }}
-                  className="px-3 py-1.5 bg-sky-500 text-white rounded-lg text-xs font-bold hover:bg-sky-600 transition"
-                >
-                  Taksit Planı Oluştur
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 3️⃣ SEKME: GEÇMİŞ BAKIMLAR VE HİZMETLER */}
-        {activeSubTab === "bakimlar" && (
-          <div className="space-y-3">
+        {/* GEÇMİŞ BAKIMLAR VE HİZMETLER */}
+        <div className="space-y-3">
             <div className="flex justify-between items-center px-1 shrink-0">
               <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Geçmiş Hizmet & Satış Kayıtları</h3>
               <button
@@ -650,8 +424,7 @@ export default function MusteriDetay({
               </p>
             )}
           </div>
-        )}
-      </div>
+        </div>
 
       {/* 💵 ÖDEME AL / TAHSİLAT MODALI */}
       {odemeModalOpen && (
@@ -690,17 +463,6 @@ export default function MusteriDetay({
                   value={tahsilatTarih}
                   onChange={(e) => setTahsilatTarih(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Açıklama / Yöntem</label>
-                <input
-                  type="text"
-                  placeholder="Nakit, Havale/EFT, Kredi Kartı vb."
-                  value={tahsilatAciklama}
-                  onChange={(e) => setTahsilatAciklama(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
 

@@ -195,16 +195,23 @@ export default function Ayarlar({
   const borcluMusterilerListesi = useMemo(() => {
     return musteriler
       .map((m) => {
+        const mBakimlar = bakimlar.filter((b) => b.musteri_id === m.id);
         const cari = getMusteriCariOzet(m.id, bakimlar);
+        const bekleyenBakimlar = mBakimlar.filter(b => b.odendi === 0);
+        const sonTarih = bekleyenBakimlar.length > 0 
+          ? [...bekleyenBakimlar].sort((a, b) => b.tarih.localeCompare(a.tarih))[0].tarih 
+          : (mBakimlar.length > 0 ? [...mBakimlar].sort((a, b) => b.tarih.localeCompare(a.tarih))[0].tarih : "");
+
         return {
           musteri: m,
           toplamBorc: cari.kalanBakiye,
           toplamAlacak: cari.toplamAlacak,
-          tahsilEdilen: cari.tahsilEdilen
+          tahsilEdilen: cari.tahsilEdilen,
+          sonTarih
         };
       })
       .filter((item) => item.toplamBorc > 0)
-      .sort((a, b) => b.toplamBorc - a.toplamBorc);
+      .sort((a, b) => b.sonTarih.localeCompare(a.sonTarih)); // En yeni tarih en üstte
   }, [musteriler, bakimlar]);
 
   const genelToplamAlacak = useMemo(() => {
@@ -215,13 +222,11 @@ export default function Ayarlar({
   const [odemeModalMusteri, setOdemeModalMusteri] = useState<{ id: number; ad: string; kalanBakiye: number } | null>(null);
   const [tahsilatTutar, setTahsilatTutar] = useState("");
   const [tahsilatTarih, setTahsilatTarih] = useState(new Date().toISOString().split("T")[0]);
-  const [tahsilatNot, setTahsilatNot] = useState("");
 
   const handleOpenTahsilatModal = (m: Musteri, kalanBakiye: number) => {
     setOdemeModalMusteri({ id: m.id, ad: m.ad, kalanBakiye });
     setTahsilatTutar(String(kalanBakiye));
     setTahsilatTarih(new Date().toISOString().split("T")[0]);
-    setTahsilatNot("Tahsilat");
   };
 
   const handleSaveTahsilat = () => {
@@ -236,12 +241,12 @@ export default function Ayarlar({
       musteri_id: odemeModalMusteri.id,
       tarih: tahsilatTarih || new Date().toISOString().split("T")[0],
       tutar: tutarNum,
-      aciklama: tahsilatNot.trim() || "Tahsilat"
+      aciklama: "Tahsilat"
     });
 
     setOdemeModalMusteri(null);
     setTahsilatTutar("");
-    alert(`${odemeModalMusteri.ad} için ${tutarNum.toLocaleString('tr-TR')} ₺ ödeme kaydı başarıyla eklendi.`);
+    alert(`${odemeModalMusteri.ad} için ${tutarNum.toLocaleString('tr-TR')} ₺ ödeme kaydı eklendi.`);
   };
 
   return (
@@ -601,17 +606,6 @@ export default function Ayarlar({
                   value={tahsilatTarih}
                   onChange={(e) => setTahsilatTarih(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Açıklama / Not (Opsiyonel)</label>
-                <input
-                  type="text"
-                  placeholder="Örn: Nakit Tahsilat"
-                  value={tahsilatNot}
-                  onChange={(e) => setTahsilatNot(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
 
