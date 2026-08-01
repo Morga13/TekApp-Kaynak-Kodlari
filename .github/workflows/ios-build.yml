@@ -24,21 +24,20 @@ jobs:
       - name: Build Web App
         run: npm run build
 
-      - name: Install CocoaPods
-        run: |
-          cd ios/App
-          pod install || pod update
+      - name: Fix Package.swift Paths
+        run: node -e "const fs=require('fs'); const p='ios/App/CapApp-SPM/Package.swift'; if(fs.existsSync(p)){ fs.writeFileSync(p, fs.readFileSync(p,'utf8').replace(/\\\\/g, '/')); }"
 
       - name: Build iOS App
         run: |
-          xcodebuild -workspace ios/App/App.xcworkspace \
+          xcodebuild -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
+            -sdk iphonesimulator \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" \
+            COMPILER_INDEX_STORE_ENABLE=NO
 
       - name: Package IPA
         run: |
