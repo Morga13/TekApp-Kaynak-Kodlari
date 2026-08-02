@@ -350,7 +350,7 @@ export default function Ayarlar({
                     {isExpanded && (
                       <div className="px-4 pb-4 pt-1 bg-slate-50/80 dark:bg-slate-900/90 border-t border-slate-100 dark:border-slate-800 animate-slide-down">
                         <div className="flex items-center gap-1.5 mb-3.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-700 shadow-xs">
-                          <Layers className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+                          <Layers className="h-4 w-4 text-sky-600 dark:text-sky-400" />
                           <span>Kullanılan Parçalar (Kategorik Görünüm)</span>
                         </div>
 
@@ -363,7 +363,7 @@ export default function Ayarlar({
                               return (
                                 <div key={kategori} className="space-y-2">
                                   <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1 border-b border-slate-200 dark:border-slate-800 pb-1.5 flex items-center gap-1.5">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400"></div>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-sky-500 dark:bg-sky-400"></div>
                                     {kategori}
                                   </h4>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

@@ -565,12 +565,12 @@ export default function MusteriDetay({
                 </div>
               </button>
 
-              <div className="rounded-xl border border-slate-200 p-3.5 space-y-2.5">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 space-y-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+                  <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center shrink-0">
                     <Calendar className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-bold text-slate-700">İstediğiniz Tarihi Girin</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">İstediğiniz Tarihi Girin</p>
                 </div>
                 <div className="flex gap-2">
                   <input
@@ -578,12 +578,12 @@ export default function MusteriDetay({
                     value={ozelTarih}
                     onChange={(e) => setOzelTarih(e.target.value)}
                     min={new Date().toISOString().split("T")[0]}
-                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
+                    className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
                   />
                   <button
                     onClick={handleSetOzelTarih}
                     disabled={!ozelTarih}
-                    className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-lg text-sm font-bold transition active:scale-95"
+                    className="px-4 py-2 bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-lg text-sm font-bold transition active:scale-95 cursor-pointer"
                   >
                     Kaydet
                   </button>

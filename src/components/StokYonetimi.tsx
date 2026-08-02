@@ -51,12 +51,12 @@ function stokStil(ad: string, miktar: number) {
 
 // Stok Grup tanımları
 const GRUPLAR = [
-  { key: "acik", baslik: "Açık Filtreler", renk: "text-sky-600", fn: (ad: string) => ad.toLowerCase().includes("açık") && ad.toLowerCase().includes("filtre") },
-  { key: "kapali", baslik: "Kapalı Filtreler", renk: "text-slate-600", fn: (ad: string) => ad.toLowerCase().includes("kapalı") && !ad.toLowerCase().includes("kokonat") },
-  { key: "kokonat", baslik: "Kokonatlı Filtreler", renk: "text-teal-600", fn: (ad: string) => ad.toLowerCase().includes("kokonat") },
-  { key: "membran", baslik: "Membran & Tatlandırıcı", renk: "text-purple-600", fn: (ad: string) => ad.toLowerCase().includes("membran") || ad.toLowerCase().includes("tatlandırıcı") },
-  { key: "cihazlar", baslik: "Su Arıtma Cihazları", renk: "text-blue-600", fn: (ad: string) => ad.toLowerCase().includes("litre") || ad.toLowerCase().includes("aquasweet") || ad.toLowerCase().includes("watalina") },
-  { key: "diger", baslik: "Teknik Parçalar & Musluklar", renk: "text-orange-600", fn: (_ad: string) => true },
+  { key: "acik", baslik: "Açık Filtreler", renk: "text-sky-700 dark:text-sky-300", fn: (ad: string) => ad.toLowerCase().includes("açık") && ad.toLowerCase().includes("filtre") },
+  { key: "kapali", baslik: "Kapalı Filtreler", renk: "text-slate-700 dark:text-slate-300", fn: (ad: string) => ad.toLowerCase().includes("kapalı") && !ad.toLowerCase().includes("kokonat") },
+  { key: "kokonat", baslik: "Kokonatlı Filtreler", renk: "text-emerald-700 dark:text-emerald-300", fn: (ad: string) => ad.toLowerCase().includes("kokonat") },
+  { key: "membran", baslik: "Membran & Tatlandırıcı", renk: "text-sky-800 dark:text-sky-200", fn: (ad: string) => ad.toLowerCase().includes("membran") || ad.toLowerCase().includes("tatlandırıcı") },
+  { key: "cihazlar", baslik: "Su Arıtma Cihazları", renk: "text-slate-800 dark:text-slate-100", fn: (ad: string) => ad.toLowerCase().includes("litre") || ad.toLowerCase().includes("aquasweet") || ad.toLowerCase().includes("watalina") },
+  { key: "diger", baslik: "Teknik Parçalar & Musluklar", renk: "text-amber-700 dark:text-amber-300", fn: (_ad: string) => true },
 ];
 
 export default function StokYonetimi({
