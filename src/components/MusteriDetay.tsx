@@ -212,85 +212,99 @@ export default function MusteriDetay({
       }}
     >
       {/* Profil Header */}
-      <div className="bg-slate-800 text-white px-4 py-4 flex flex-col gap-3 shadow-md shrink-0">
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={onBack}
-            className="p-1.5 min-h-[44px] min-w-[44px] bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white rounded-xl transition flex items-center justify-center shrink-0"
-            title="Geri Dön"
-          >
-            <ChevronLeft className="h-5 w-5 text-white" />
-          </button>
-          <div className="h-10 w-10 rounded-full bg-sky-400 text-white font-bold text-base flex items-center justify-center shrink-0">
+      <div className="bg-slate-800 text-white p-4 flex flex-col gap-3 shadow-md shrink-0">
+        
+        {/* 1. ÜST BLOK: Müşteri Bilgi Kartı */}
+        <div className="flex items-start gap-3">
+          <div className="h-11 w-11 rounded-full bg-sky-500 text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-xs">
             {musteri.ad[0].toUpperCase()}
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-base font-bold truncate">{musteri.ad}</h2>
+          
+          <div className="flex-1 min-w-0 space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base font-bold text-white truncate">{musteri.ad}</h2>
+              <span className="px-2 py-0.5 bg-slate-700 text-slate-300 text-[11px] font-semibold rounded-md border border-slate-600">
+                Kapalı Cihaz
+              </span>
+            </div>
+
             {musteri.telefon && (
-              <p className="text-xs text-slate-300 font-mono flex items-center gap-1 mt-0.5">
-                <Phone className="h-3 w-3 text-slate-400" />
+              <p className="text-xs text-slate-300 font-mono flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                 {musteri.telefon}
               </p>
             )}
-          </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            {musteri.telefon && (
-              <button
-                onClick={() => {
-                  let raw = musteri.telefon.replace(/\D/g, "");
-                  if (raw.startsWith("0")) raw = "9" + raw;
-                  if (!raw.startsWith("90") && raw.length === 10) raw = "90" + raw;
-                  safeOpenUrl(`https://wa.me/${raw}`);
-                }}
-                className="p-2 min-h-[44px] min-w-[44px] bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-xl transition flex items-center justify-center shadow-xs"
-                title="WhatsApp Mesaj Gönder"
-              >
-                <MessageSquare className="h-4 w-4" />
-              </button>
-            )}
-            <button
-              onClick={() => setOdemeModalOpen(true)}
-              className="p-2 min-h-[44px] px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
-              title="Ödeme Al"
-            >
-              <Wallet className="h-4 w-4" />
-              Ödeme Al
-            </button>
-            {cariOzet.kalanBakiye > 0 ? (
-              <div className="px-2.5 py-2 min-h-[44px] bg-rose-500/20 border border-rose-400/40 text-rose-300 rounded-xl text-xs font-extrabold flex items-center justify-center shrink-0 font-mono">
-                🔴 {cariOzet.kalanBakiye.toLocaleString("tr-TR")} ₺
-              </div>
-            ) : (
-              <div className="px-2.5 py-2 min-h-[44px] bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 rounded-xl text-xs font-extrabold flex items-center justify-center shrink-0">
-                🟢 Borcu Yok
-              </div>
-            )}
-          </div>
-        </div>
-
-        {(musteri.adres || musteri.not) && (
-          <div className="space-y-1 pt-1 border-t border-slate-700/60 text-xs text-slate-300">
             {musteri.adres && (
-              <div className="flex items-start gap-1.5">
+              <div className="flex items-start gap-1.5 text-xs text-slate-300 pt-0.5">
                 <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
-                <span className="flex-1">{musteri.adres}</span>
+                <span className="flex-1 line-clamp-2">{musteri.adres}</span>
                 <button
                   onClick={() => safeOpenUrl(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(musteri.adres)}`)}
-                  className="text-sky-300 hover:underline text-[11px] shrink-0 font-medium"
+                  className="text-sky-300 hover:underline text-[11px] shrink-0 font-medium ml-1"
                 >
                   Yol Tarifi
                 </button>
               </div>
             )}
+
             {musteri.not && (
-              <div className="flex items-start gap-1.5 italic text-slate-400">
+              <div className="flex items-start gap-1.5 text-xs italic text-slate-400 pt-0.5">
                 <FileText className="h-3.5 w-3.5 text-slate-500 shrink-0 mt-0.5" />
-                <span>{musteri.not}</span>
+                <span className="line-clamp-2">{musteri.not}</span>
               </div>
             )}
           </div>
-        )}
+        </div>
+
+        {/* 2. ALT BLOK: Aksiyon Butonları Satırı */}
+        <div className="pt-2.5 border-t border-slate-700/60 flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+          {/* Geri Butonu (<) */}
+          <button
+            onClick={onBack}
+            className="p-2 min-h-[40px] min-w-[40px] bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white rounded-xl transition flex items-center justify-center shrink-0 border border-slate-600"
+            title="Geri Dön"
+          >
+            <ChevronLeft className="h-5 w-5 text-white" />
+          </button>
+
+          {/* Mesaj İkonu (WhatsApp) */}
+          {musteri.telefon && (
+            <button
+              onClick={() => {
+                let raw = musteri.telefon.replace(/\D/g, "");
+                if (raw.startsWith("0")) raw = "9" + raw;
+                if (!raw.startsWith("90") && raw.length === 10) raw = "90" + raw;
+                safeOpenUrl(`https://wa.me/${raw}`);
+              }}
+              className="p-2 min-h-[40px] min-w-[40px] bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl transition flex items-center justify-center shrink-0 shadow-xs border border-emerald-500"
+              title="WhatsApp Mesaj Gönder"
+            >
+              <MessageSquare className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Ödeme Al Butonu */}
+          <button
+            onClick={() => setOdemeModalOpen(true)}
+            className="px-3.5 py-2 min-h-[40px] bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-xs border border-emerald-500"
+            title="Ödeme Al"
+          >
+            <Wallet className="h-4 w-4" />
+            <span>Ödeme Al</span>
+          </button>
+
+          {/* Borcu/Bakiye Durum Butonu */}
+          {cariOzet.kalanBakiye > 0 ? (
+            <div className="px-3 py-2 min-h-[40px] bg-rose-500/20 border border-rose-400/40 text-rose-300 rounded-xl text-xs font-extrabold flex items-center justify-center shrink-0 font-mono">
+              🔴 Borç: {cariOzet.kalanBakiye.toLocaleString("tr-TR")} ₺
+            </div>
+          ) : (
+            <div className="px-3 py-2 min-h-[40px] bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 rounded-xl text-xs font-extrabold flex items-center justify-center shrink-0">
+              🟢 Borcu Yok
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Ana İçerik Alanı */}
