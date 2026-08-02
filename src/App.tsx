@@ -408,13 +408,6 @@ export default function App() {
           </div>
           <span className="font-extrabold text-base tracking-tight text-white">{getScreenTitle()}</span>
         </div>
-        <div className="flex items-center gap-1.5 py-3">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700/80">
-            {syncing && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-300" />}
-            <div className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-500" : "bg-amber-500"}`} />
-            <span className="text-[11px] font-semibold text-slate-300">{isOnline ? "Canlı Senkron" : "Çevrimdışı"}</span>
-          </div>
-        </div>
       </header>
 
       {/* İçerik alanı - tam ekran */}
