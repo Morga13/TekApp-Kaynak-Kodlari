@@ -31,6 +31,7 @@ import Ayarlar from "./components/Ayarlar";
 
 import { Users, PlusCircle, Settings, Loader2, Package, Wrench } from "lucide-react";
 import { initTheme } from "./utils/theme";
+import appLogo from "./assets/logo.png";
 
 type TabType = "musteriler" | "yeni-bakim" | "stok" | "ayarlar";
 
@@ -403,9 +404,7 @@ export default function App() {
       <header className="bg-slate-900 text-white px-4 pt-safe flex items-center justify-between shrink-0 border-b border-slate-800"
         style={{ paddingTop: "env(safe-area-inset-top, 12px)", minHeight: "56px" }}>
         <div className="flex items-center gap-4 py-3">
-          <div className="h-9 w-9 rounded-xl bg-sky-700 text-white flex items-center justify-center shrink-0 shadow-xs border border-sky-600/60" title="TekApp Logo">
-            <Wrench className="h-5 w-5 text-white" />
-          </div>
+          <img src={appLogo} alt="TekApp Logo" className="h-9 w-9 rounded-xl object-cover shrink-0 shadow-xs border border-slate-700/60" />
           <span className="font-extrabold text-base tracking-tight text-white pl-1">{getScreenTitle()}</span>
         </div>
       </header>
