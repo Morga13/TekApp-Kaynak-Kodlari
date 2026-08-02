@@ -29,7 +29,7 @@ import YeniBakimKaydi from "./components/YeniBakimKaydi";
 import StokYonetimi from "./components/StokYonetimi";
 import Ayarlar from "./components/Ayarlar";
 
-import { Users, PlusCircle, Settings, Loader2, Package } from "lucide-react";
+import { Users, PlusCircle, Settings, Loader2, Package, Wrench } from "lucide-react";
 import { initTheme } from "./utils/theme";
 
 type TabType = "musteriler" | "yeni-bakim" | "stok" | "ayarlar";
@@ -402,11 +402,11 @@ export default function App() {
       {/* Mobil üst başlık */}
       <header className="bg-slate-900 text-white px-4 pt-safe flex items-center justify-between shrink-0 border-b border-slate-800"
         style={{ paddingTop: "env(safe-area-inset-top, 12px)", minHeight: "56px" }}>
-        <div className="flex items-center gap-2.5 py-3">
-          <div className="h-8 w-8 rounded-lg bg-sky-600 text-white font-extrabold text-xs flex items-center justify-center tracking-wider shrink-0 shadow-xs">
-            TA
+        <div className="flex items-center gap-4 py-3">
+          <div className="h-9 w-9 rounded-xl bg-sky-700 text-white flex items-center justify-center shrink-0 shadow-xs border border-sky-600/60" title="TekApp Logo">
+            <Wrench className="h-5 w-5 text-white" />
           </div>
-          <span className="font-extrabold text-base tracking-tight text-white">{getScreenTitle()}</span>
+          <span className="font-extrabold text-base tracking-tight text-white pl-1">{getScreenTitle()}</span>
         </div>
       </header>
 
