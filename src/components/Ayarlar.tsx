@@ -4,6 +4,7 @@ import { Musteri, Parca, Bakim } from "../types";
 import { COMPOSITE_PARTS_MAPPING } from "../db/stok";
 import { getStoredTheme, applyTheme, ThemeMode } from "../utils/theme";
 import { getMusteriCariOzet, saveTahsilat } from "../utils/cari";
+import { formatDateDDMMYYYY } from "../utils/date";
 
 interface AyarlarProps {
   musteriler?: Musteri[];
@@ -347,9 +348,9 @@ export default function Ayarlar({
 
                     {/* Parça Detayı Accordion */}
                     {isExpanded && (
-                      <div className="px-4 pb-4 pt-1 bg-slate-50/70 border-t border-slate-100 animate-slide-down">
-                        <div className="flex items-center gap-1.5 mb-3.5 text-xs font-bold text-slate-600 bg-white p-2 rounded-lg border border-slate-200/60 shadow-sm">
-                          <Layers className="h-4 w-4 text-indigo-500" />
+                      <div className="px-4 pb-4 pt-1 bg-slate-50/80 dark:bg-slate-900/90 border-t border-slate-100 dark:border-slate-800 animate-slide-down">
+                        <div className="flex items-center gap-1.5 mb-3.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-700 shadow-xs">
+                          <Layers className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
                           <span>Kullanılan Parçalar (Kategorik Görünüm)</span>
                         </div>
 
@@ -361,18 +362,18 @@ export default function Ayarlar({
 
                               return (
                                 <div key={kategori} className="space-y-2">
-                                  <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider pl-1 border-b border-slate-200 pb-1.5 flex items-center gap-1.5">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                                  <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1 border-b border-slate-200 dark:border-slate-800 pb-1.5 flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400"></div>
                                     {kategori}
                                   </h4>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {kategoriParcalar.map(([parcaAd, adet]) => (
                                       <div
                                         key={parcaAd}
-                                        className="bg-white border border-slate-200/80 rounded-lg p-2.5 flex justify-between items-center text-xs shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition hover:border-sky-200"
+                                        className="bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-lg p-2.5 flex justify-between items-center text-xs shadow-xs transition hover:border-sky-300 dark:hover:border-sky-600"
                                       >
-                                        <span className="font-medium text-slate-700 truncate max-w-[180px]">{parcaAd}</span>
-                                        <span className="font-extrabold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100 font-mono">
+                                        <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[180px]">{parcaAd}</span>
+                                        <span className="font-extrabold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/80 px-2.5 py-1 rounded-md border border-sky-100 dark:border-sky-800/60 font-mono">
                                           {adet} Adet
                                         </span>
                                       </div>
@@ -435,6 +436,11 @@ export default function Ayarlar({
                       )}
                       {m.adres && (
                         <span className="text-xs text-slate-400 block truncate">{m.adres}</span>
+                      )}
+                      {item.sonTarih && (
+                        <span className="text-[11px] text-slate-400 block font-mono">
+                          Son Borç Tarihi: {formatDateDDMMYYYY(item.sonTarih)}
+                        </span>
                       )}
                     </div>
 

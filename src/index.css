@@ -24,7 +24,7 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 🌙 Koyu Mod (Dark Mode) Genel Stil Kuralları */
+/* 🌙 Koyu Mod (Dark Mode) Genel Stil Kuralları - UI/UX Pro Max Standartları */
 html.dark {
   color-scheme: dark;
 }
@@ -39,7 +39,9 @@ html.dark .bg-white {
   color: #f8fafc !important;
 }
 
-html.dark .bg-slate-50 {
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/70,
+html.dark .bg-slate-50\/50 {
   background-color: #0f172a !important;
 }
 
@@ -48,7 +50,9 @@ html.dark .bg-slate-100 {
 }
 
 html.dark .border-slate-100,
-html.dark .border-slate-200 {
+html.dark .border-slate-200,
+html.dark .border-slate-200\/60,
+html.dark .border-slate-200\/80 {
   border-color: #334155 !important;
 }
 
@@ -62,11 +66,16 @@ html.dark .text-slate-500 {
   color: #94a3b8 !important;
 }
 
+html.dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
 html.dark input,
 html.dark select,
 html.dark textarea {
   background-color: #0f172a !important;
   border-color: #334155 !important;
+  color: #f8fafc !important;
 }
 
 html.dark nav {
@@ -74,16 +83,56 @@ html.dark nav {
   border-top-color: #334155 !important;
 }
 
+/* 🔵 Sky / Mavi Renk Koyu Mod Düzeltmeleri (Aylık Ciro ve Rozetler) */
+html.dark .bg-sky-50 {
+  background-color: #0c2a3e !important; /* Derin mat okyanus mavisi */
+  color: #7dd3fc !important;
+  border-color: #075985 !important;
+}
+
+html.dark .bg-sky-100 {
+  background-color: #0c4a6e !important;
+  color: #bae6fd !important;
+  border-color: #0284c7 !important;
+}
+
+html.dark .text-sky-700,
+html.dark .text-sky-600 {
+  color: #38bdf8 !important;
+}
+
+html.dark .border-sky-100,
+html.dark .border-sky-200 {
+  border-color: #0369a1 !important;
+}
+
+/* 🟣 Indigo / Mor Renk Koyu Mod Düzeltmeleri */
+html.dark .bg-indigo-50 {
+  background-color: #1e1b4b !important;
+  color: #c7d2fe !important;
+  border-color: #3730a3 !important;
+}
+
+html.dark .text-indigo-500,
+html.dark .text-indigo-600 {
+  color: #818cf8 !important;
+}
+
+html.dark .border-indigo-100,
+html.dark .border-indigo-200 {
+  border-color: #3730a3 !important;
+}
+
 /* 🔴 Stok Durumu: KRİTİK (Kırmızı) — Mat & Yüksek Kontrastlı Koyu Mod */
 html.dark .bg-rose-50 {
-  background-color: #1c1012 !important; /* Mat koyu kırmızı zemin (gözü yormaz) */
+  background-color: #1c1012 !important; /* Mat koyu kırmızı zemin */
 }
 html.dark .border-rose-200 {
   border-color: #4c1d24 !important; /* Yumuşak bordo çerçeve */
 }
 html.dark .text-rose-700,
 html.dark .text-rose-600 {
-  color: #f87171 !important; /* Mat parlak kırmızı (okunabilir, patlamaz) */
+  color: #f87171 !important; /* Mat parlak kırmızı */
 }
 html.dark .bg-rose-100 {
   background-color: #381217 !important;
@@ -96,11 +145,11 @@ html.dark .bg-amber-50 {
   background-color: #1c160c !important; /* Mat koyu amber zemin */
 }
 html.dark .border-amber-200 {
-  border-color: #452c0e !important; /* Yumuşak kehribar çerçeve */
+  border-color: #452c0e !important;
 }
 html.dark .text-amber-700,
 html.dark .text-amber-600 {
-  color: #fbbf24 !important; /* Mat parlak sarı (okunabilir, patlamaz) */
+  color: #fbbf24 !important;
 }
 html.dark .bg-amber-100 {
   background-color: #36240d !important;
@@ -110,14 +159,14 @@ html.dark .bg-amber-100 {
 
 /* 🟢 Stok Durumu: YETERLİ (Yeşil) — Mat & Yüksek Kontrastlı Koyu Mod */
 html.dark .bg-emerald-50 {
-  background-color: #0c1a15 !important; /* Mat koyu yeşil zemin */
+  background-color: #0c1a15 !important;
 }
 html.dark .border-emerald-200 {
-  border-color: #164e39 !important; /* Yumuşak yeşil çerçeve */
+  border-color: #164e39 !important;
 }
 html.dark .text-emerald-700,
 html.dark .text-emerald-600 {
-  color: #34d399 !important; /* Mat parlak yeşil (okunabilir, patlamaz) */
+  color: #34d399 !important;
 }
 html.dark .bg-emerald-100 {
   background-color: #14382a !important;

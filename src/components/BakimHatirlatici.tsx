@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Musteri, Bakim } from "../types";
 import { Bell, Calendar, Phone, MapPin, Wrench, MessageSquare, Search, AlertCircle, Clock, CheckCircle2 } from "lucide-react";
 import { Capacitor } from '@capacitor/core';
+import { formatDateDDMMYYYY } from "../utils/date";
 
 interface BakimHatirlaticiProps {
   musteriler: Musteri[];
@@ -76,7 +77,7 @@ export default function BakimHatirlatici({
     if (rawPhone.startsWith("0")) rawPhone = "9" + rawPhone;
     if (!rawPhone.startsWith("90") && rawPhone.length === 10) rawPhone = "90" + rawPhone;
 
-    const tarihText = item.latestBakim ? item.latestBakim.tarih : "Henüz bakım yapılmadı";
+    const tarihText = item.latestBakim ? formatDateDDMMYYYY(item.latestBakim.tarih) : "Henüz bakım yapılmadı";
     const msg = `Sayın ${item.musteri.ad},\nTekApp Su Arıtma cihazınızın bakım zamanı gelmiştir. En son servis tarihiniz: ${tarihText}.\nFiltre değişimi ve kontrol için randevu oluşturmak ister misiniz?`;
 
     const whatsappUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
@@ -193,7 +194,7 @@ export default function BakimHatirlatici({
                     <Calendar className="h-3.5 w-3.5 text-slate-400" />
                     <span>Son Bakım: </span>
                     <span className="font-semibold text-slate-700">
-                      {latestBakim ? latestBakim.tarih : "Kayıt Yok"}
+                      {latestBakim ? formatDateDDMMYYYY(latestBakim.tarih) : "Kayıt Yok"}
                     </span>
                   </div>
 

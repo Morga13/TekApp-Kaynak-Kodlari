@@ -6,6 +6,7 @@ import {
   Bell, X, Clock, CalendarCheck, Wallet, ChevronLeft
 } from "lucide-react";
 import { saveTahsilat, getMusteriCariOzet } from "../utils/cari";
+import { formatDateDDMMYYYY } from "../utils/date";
 
 interface MusteriDetayProps {
   musteriId: number;
@@ -402,7 +403,7 @@ export default function MusteriDetay({
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
                       <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                      <span>{b.tarih}</span>
+                      <span>{formatDateDDMMYYYY(b.tarih)}</span>
                     </div>
 
                     <div className="flex items-center gap-2">
