@@ -400,19 +400,19 @@ export default function App() {
     <div className="flex flex-col h-screen w-screen bg-white overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* Mobil üst başlık */}
-      <header className="bg-gradient-to-r from-sky-600 via-sky-700 to-indigo-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 text-white px-4 pt-safe flex items-center justify-between shrink-0 shadow-sm border-b border-white/10"
-        style={{ paddingTop: "env(safe-area-inset-top, 12px)", minHeight: "58px" }}>
+      <header className="bg-slate-900 text-white px-4 pt-safe flex items-center justify-between shrink-0 border-b border-slate-800"
+        style={{ paddingTop: "env(safe-area-inset-top, 12px)", minHeight: "56px" }}>
         <div className="flex items-center gap-2.5 py-3">
-          <div className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 text-white font-extrabold text-xs flex items-center justify-center shadow-inner tracking-wider">
+          <div className="h-8 w-8 rounded-lg bg-sky-600 text-white font-extrabold text-xs flex items-center justify-center tracking-wider shrink-0 shadow-xs">
             TA
           </div>
-          <span className="font-extrabold text-base tracking-tight text-white drop-shadow-xs">{getScreenTitle()}</span>
+          <span className="font-extrabold text-base tracking-tight text-white">{getScreenTitle()}</span>
         </div>
         <div className="flex items-center gap-1.5 py-3">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-xs">
-            {syncing && <Loader2 className="h-3.5 w-3.5 animate-spin text-white/90" />}
-            <div className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-400 shadow-emerald-400/50 shadow-xs" : "bg-amber-400 shadow-amber-400/50 shadow-xs"}`} />
-            <span className="text-[11px] font-semibold text-white/90">{isOnline ? "Canlı Senkron" : "Çevrimdışı"}</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700/80">
+            {syncing && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-300" />}
+            <div className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-500" : "bg-amber-500"}`} />
+            <span className="text-[11px] font-semibold text-slate-300">{isOnline ? "Canlı Senkron" : "Çevrimdışı"}</span>
           </div>
         </div>
       </header>
@@ -423,8 +423,8 @@ export default function App() {
       </div>
 
       {/* Alt navigasyon çubuğu (3 Temel Sekme) */}
-      <nav className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 flex justify-around items-center shrink-0 px-2 shadow-lg"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 8px)", paddingTop: "6px", minHeight: "62px" }}>
+      <nav className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center shrink-0 px-2 shadow-xs"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 8px)", paddingTop: "6px", minHeight: "60px" }}>
         {[
           { tab: "musteriler"  as TabType, icon: Users,      label: "Müşteriler" },
           { tab: "stok"        as TabType, icon: Package,    label: "Stok & Malzeme" },
@@ -435,13 +435,13 @@ export default function App() {
             <button
               key={tab}
               onClick={() => navigateToTab(tab)}
-              className={`flex flex-col items-center justify-center flex-1 py-1.5 px-3 rounded-xl transition-all duration-200 active:scale-95 cursor-pointer ${
+              className={`flex flex-col items-center justify-center flex-1 py-1.5 px-3 rounded-lg transition-colors cursor-pointer ${
                 isActive
-                  ? "bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 font-bold shadow-xs border border-sky-100 dark:border-sky-900/40"
-                  : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+                  ? "bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-bold border border-sky-100 dark:border-sky-800/50"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
-              <Icon className={`h-5 w-5 transition-transform duration-200 ${isActive ? "scale-110" : ""}`} />
+              <Icon className="h-5 w-5" />
               <span className="text-[10px] mt-1 font-semibold tracking-tight">{label}</span>
             </button>
           );

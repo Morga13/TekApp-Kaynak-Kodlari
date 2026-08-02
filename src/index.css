@@ -1,6 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* 60-30-10 Design Tokens (Light Mode) */
+  --bg-app: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --bg-header: #0F172A;
+  --border-color: #E2E8F0;
+  
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+
+  --primary: #0284C7;
+  --primary-hover: #0369A1;
+  --primary-on: #FFFFFF;
+
+  --success-bg: #F0FDF4;
+  --success-text: #15803D;
+  --success-border: #BBF7D0;
+
+  --danger-bg: #FEF2F2;
+  --danger-text: #B91C1C;
+  --danger-border: #FECACA;
+
+  --warning-bg: #FFFBEB;
+  --warning-text: #B45309;
+  --warning-border: #FDE68A;
+}
+
+html.dark {
+  color-scheme: dark;
+
+  /* 60-30-10 Design Tokens (Dark Mode) */
+  --bg-app: #0F172A;
+  --bg-card: #1E293B;
+  --bg-header: #0F172A;
+  --border-color: #334155;
+
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+
+  --primary: #38BDF8;
+  --primary-hover: #0284C7;
+  --primary-on: #0F172A;
+
+  --success-bg: #062E1B;
+  --success-text: #4ADE80;
+  --success-border: #166534;
+
+  --danger-bg: #2D1215;
+  --danger-text: #F87171;
+  --danger-border: #991B1B;
+
+  --warning-bg: #2D2305;
+  --warning-text: #FBBF24;
+  --warning-border: #92400E;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
 
 /* Mobil cihazlarda arama ve girdi alanlarına odaklanıldığında zoom yapılmasını engeller */
 @media screen and (max-width: 768px) {
@@ -18,17 +87,7 @@
   padding-bottom: env(safe-area-inset-bottom, 16px);
 }
 
-/* Smooth Scrolling */
-html, body {
-  overscroll-behavior-y: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* 🌙 Koyu Mod (Dark Mode) Genel Stil Kuralları - UI/UX Pro Max Standartları */
-html.dark {
-  color-scheme: dark;
-}
-
+/* 🌙 Koyu Mod (Dark Mode) Standart Tema Kuralları */
 html.dark body {
   background-color: #0f172a;
   color: #f8fafc;
@@ -40,6 +99,7 @@ html.dark .bg-white {
 }
 
 html.dark .bg-slate-50,
+html.dark .bg-slate-50\/80,
 html.dark .bg-slate-50\/70,
 html.dark .bg-slate-50\/50 {
   background-color: #0f172a !important;
@@ -56,9 +116,10 @@ html.dark .border-slate-200\/80 {
   border-color: #334155 !important;
 }
 
+html.dark .text-slate-900,
 html.dark .text-slate-800,
 html.dark .text-slate-700 {
-  color: #f1f5f9 !important;
+  color: #f8fafc !important;
 }
 
 html.dark .text-slate-600,
@@ -83,9 +144,9 @@ html.dark nav {
   border-top-color: #334155 !important;
 }
 
-/* 🔵 Sky / Mavi Renk Koyu Mod Düzeltmeleri (Aylık Ciro ve Rozetler) */
+/* 🔵 Sky / Primary Mavi Rozet ve Buton Kuralları */
 html.dark .bg-sky-50 {
-  background-color: #0c2a3e !important; /* Derin mat okyanus mavisi */
+  background-color: #0c2a3e !important;
   color: #7dd3fc !important;
   border-color: #075985 !important;
 }
@@ -106,7 +167,7 @@ html.dark .border-sky-200 {
   border-color: #0369a1 !important;
 }
 
-/* 🟣 Indigo / Mor Renk Koyu Mod Düzeltmeleri */
+/* 🟣 Indigo / Mor Renk Kuralları */
 html.dark .bg-indigo-50 {
   background-color: #1e1b4b !important;
   color: #c7d2fe !important;
@@ -125,14 +186,14 @@ html.dark .border-indigo-200 {
 
 /* 🔴 Stok Durumu: KRİTİK (Kırmızı) — Mat & Yüksek Kontrastlı Koyu Mod */
 html.dark .bg-rose-50 {
-  background-color: #1c1012 !important; /* Mat koyu kırmızı zemin */
+  background-color: #1c1012 !important;
 }
 html.dark .border-rose-200 {
-  border-color: #4c1d24 !important; /* Yumuşak bordo çerçeve */
+  border-color: #4c1d24 !important;
 }
 html.dark .text-rose-700,
 html.dark .text-rose-600 {
-  color: #f87171 !important; /* Mat parlak kırmızı */
+  color: #f87171 !important;
 }
 html.dark .bg-rose-100 {
   background-color: #381217 !important;
@@ -142,7 +203,7 @@ html.dark .bg-rose-100 {
 
 /* 🟡 Stok Durumu: DÜŞÜK (Sarı/Kehribar) — Mat & Yüksek Kontrastlı Koyu Mod */
 html.dark .bg-amber-50 {
-  background-color: #1c160c !important; /* Mat koyu amber zemin */
+  background-color: #1c160c !important;
 }
 html.dark .border-amber-200 {
   border-color: #452c0e !important;

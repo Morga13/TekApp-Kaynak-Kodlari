@@ -455,7 +455,8 @@ export default function MusteriListesi({
           setEditId(undefined);
           setModalOpen(true);
         }}
-        className="absolute bottom-20 right-6 h-12 w-12 rounded-full bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20 flex items-center justify-center transition active:scale-95"
+        className="fixed bottom-20 right-5 h-12 w-12 rounded-full bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500 text-white shadow-md flex items-center justify-center transition active:scale-95 cursor-pointer z-40"
+        title="Yeni Müşteri Ekle"
       >
         <Plus className="h-6 w-6" />
       </button>
