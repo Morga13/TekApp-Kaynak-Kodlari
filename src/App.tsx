@@ -32,6 +32,7 @@ import Ayarlar from "./components/Ayarlar";
 import { Users, PlusCircle, Settings, Loader2, Package, Wrench } from "lucide-react";
 import { initTheme } from "./utils/theme";
 import appLogo from "./assets/logo.png";
+import { App as CapApp } from "@capacitor/app";
 
 type TabType = "musteriler" | "yeni-bakim" | "stok" | "ayarlar";
 
@@ -95,18 +96,51 @@ export default function App() {
     }
   }, []);
 
-  // Donanım / Mobil Geri Tuşu (Popstate) Dinleyicisi
+  const selectedMusteriIdRef = useRef(selectedMusteriId);
+  selectedMusteriIdRef.current = selectedMusteriId;
+
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
+  // Donanım / Mobil Geri Tuşu (Capacitor Native + Web Popstate) Dinleyicisi
   useEffect(() => {
+    let backListener: any = null;
+
+    const setupBackListener = async () => {
+      try {
+        backListener = await CapApp.addListener("backButton", () => {
+          if (selectedMusteriIdRef.current !== null) {
+            setSelectedMusteriId(null);
+          } else if (activeTabRef.current !== "musteriler") {
+            setActiveTab("musteriler");
+          } else {
+            CapApp.minimizeApp();
+          }
+        });
+      } catch (err) {
+        console.warn("Capacitor App backButton listener desteklenmiyor:", err);
+      }
+    };
+
+    setupBackListener();
+
     const handlePopState = () => {
-      if (selectedMusteriId !== null) {
+      if (selectedMusteriIdRef.current !== null) {
         setSelectedMusteriId(null);
-      } else if (activeTab !== "musteriler") {
+      } else if (activeTabRef.current !== "musteriler") {
         setActiveTab("musteriler");
       }
     };
+
     window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [selectedMusteriId, activeTab]);
+
+    return () => {
+      if (backListener) {
+        backListener.remove();
+      }
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
 
   const handleSelectMusteri = (id: number | null) => {
     if (id !== null) {

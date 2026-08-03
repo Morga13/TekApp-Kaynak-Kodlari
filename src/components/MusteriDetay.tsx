@@ -259,14 +259,14 @@ export default function MusteriDetay({
         </div>
 
         {/* 2. ALT BLOK: Aksiyon Butonları Satırı */}
-        <div className="pt-2.5 border-t border-slate-700/60 flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+        <div className="pt-2 border-t border-slate-700/60 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
           {/* Geri Butonu (<) */}
           <button
             onClick={onBack}
-            className="p-2 min-h-[40px] min-w-[40px] bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white rounded-xl transition flex items-center justify-center shrink-0 border border-slate-600"
+            className="p-1.5 min-h-[36px] min-w-[36px] bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white rounded-lg transition flex items-center justify-center shrink-0 border border-slate-600 cursor-pointer"
             title="Geri Dön"
           >
-            <ChevronLeft className="h-5 w-5 text-white" />
+            <ChevronLeft className="h-4 w-4 text-white" />
           </button>
 
           {/* Mesaj İkonu (WhatsApp) */}
@@ -278,30 +278,30 @@ export default function MusteriDetay({
                 if (!raw.startsWith("90") && raw.length === 10) raw = "90" + raw;
                 safeOpenUrl(`https://wa.me/${raw}`);
               }}
-              className="p-2 min-h-[40px] min-w-[40px] bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl transition flex items-center justify-center shrink-0 shadow-xs border border-emerald-500"
+              className="p-1.5 min-h-[36px] min-w-[36px] bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg transition flex items-center justify-center shrink-0 shadow-xs border border-emerald-500 cursor-pointer"
               title="WhatsApp Mesaj Gönder"
             >
-              <MessageSquare className="h-4 w-4" />
+              <MessageSquare className="h-3.5 w-3.5" />
             </button>
           )}
 
           {/* Ödeme Al Butonu */}
           <button
             onClick={() => setOdemeModalOpen(true)}
-            className="px-3.5 py-2 min-h-[40px] bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-xs border border-emerald-500"
+            className="px-2.5 py-1.5 min-h-[36px] bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1 shrink-0 shadow-xs border border-emerald-500 cursor-pointer"
             title="Ödeme Al"
           >
-            <Wallet className="h-4 w-4" />
+            <Wallet className="h-3.5 w-3.5" />
             <span>Ödeme Al</span>
           </button>
 
           {/* Borcu/Bakiye Durum Butonu */}
           {cariOzet.kalanBakiye > 0 ? (
-            <div className="px-3 py-2 min-h-[40px] bg-rose-500/20 border border-rose-400/40 text-rose-300 rounded-xl text-xs font-extrabold flex items-center justify-center shrink-0 font-mono">
+            <div className="px-2.5 py-1.5 min-h-[36px] bg-rose-500/20 border border-rose-400/40 text-rose-300 rounded-lg text-[11px] font-bold flex items-center justify-center shrink-0 font-mono tracking-tight">
               🔴 Borç: {cariOzet.kalanBakiye.toLocaleString("tr-TR")} ₺
             </div>
           ) : (
-            <div className="px-3 py-2 min-h-[40px] bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 rounded-xl text-xs font-extrabold flex items-center justify-center shrink-0">
+            <div className="px-2.5 py-1.5 min-h-[36px] bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 rounded-lg text-[11px] font-bold flex items-center justify-center shrink-0 tracking-tight">
               🟢 Borcu Yok
             </div>
           )}
