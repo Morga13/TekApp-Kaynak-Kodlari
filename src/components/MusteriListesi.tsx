@@ -1,11 +1,38 @@
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { Musteri, Bakim } from "../types";
 import { Search, Plus, Phone, MapPin, FileText, Edit2, Trash2, Eye, X, Smartphone, MessageSquare, LocateFixed, Loader2, Wallet, Map } from "lucide-react";
 import { Contacts } from "@capacitor-community/contacts";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from '@capacitor/core';
 import { getMusteriCariOzet, saveTahsilat } from "../utils/cari";
-import KonumKaydet, { KonumPayload } from "./KonumKaydet";
+import type { KonumPayload } from "./KonumKaydet";
+
+// Leaflet sadece kullanıcı "Haritadan Seç" butonuna basınca yüklenir
+const KonumKaydet = React.lazy(() => import("./KonumKaydet"));
+
+// Harita bileşeni çökse bile uygulamanın geri kalanı etkilenmesin
+class MapErrorBoundary extends React.Component<
+  { children: React.ReactNode; onClose: () => void },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; onClose: () => void }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(e: Error) { console.error("Harita hatası:", e); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 z-[60] bg-white dark:bg-slate-950 flex flex-col items-center justify-center gap-4 p-6">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 text-center">Harita yüklenemedi. İnternet bağlantınızı kontrol edin.</p>
+          <button onClick={this.props.onClose} className="px-5 py-2.5 bg-sky-700 text-white rounded-xl text-sm font-bold">Kapat</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface MusteriListesiProps {
   musteriler: Musteri[];
@@ -766,26 +793,36 @@ export default function MusteriListesi({
         </div>
       )}
 
-      {/* ── Haritadan Adres Seç — Tam Ekran Overlay ────────── */}
+      {/* ── Haritadan Adres Seç — Tam Ekran Overlay (Lazy + İzole) ── */}
       {konumKaydetOpen && (
-        <div className="fixed inset-0 z-[60] bg-white dark:bg-slate-950">
-          <KonumKaydet
-            onSubmit={(payload: KonumPayload) => {
-              // Seçilen adres bilgilerini birleştirip adres alanına yaz
-              const detayParts = [
-                payload.auto_address,
-                payload.building_name && `${payload.building_name}`,
-                payload.block && `Blok: ${payload.block}`,
-                payload.floor && `Kat: ${payload.floor}`,
-                payload.door_number && `Daire: ${payload.door_number}`,
-                payload.address_note && `(${payload.address_note})`,
-              ].filter(Boolean);
-              setAdres(detayParts.join(", "));
-              setKonumKaydetOpen(false);
-            }}
-            onClose={() => setKonumKaydetOpen(false)}
-          />
-        </div>
+        <MapErrorBoundary onClose={() => setKonumKaydetOpen(false)}>
+          <Suspense fallback={
+            <div className="fixed inset-0 z-[60] bg-white dark:bg-slate-950 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-8 w-8 text-sky-700 animate-spin" />
+                <span className="text-sm text-slate-500 font-medium">Harita yükleniyor...</span>
+              </div>
+            </div>
+          }>
+            <div className="fixed inset-0 z-[60] bg-white dark:bg-slate-950">
+              <KonumKaydet
+                onSubmit={(payload: KonumPayload) => {
+                  const detayParts = [
+                    payload.auto_address,
+                    payload.building_name && `${payload.building_name}`,
+                    payload.block && `Blok: ${payload.block}`,
+                    payload.floor && `Kat: ${payload.floor}`,
+                    payload.door_number && `Daire: ${payload.door_number}`,
+                    payload.address_note && `(${payload.address_note})`,
+                  ].filter(Boolean);
+                  setAdres(detayParts.join(", "));
+                  setKonumKaydetOpen(false);
+                }}
+                onClose={() => setKonumKaydetOpen(false)}
+              />
+            </div>
+          </Suspense>
+        </MapErrorBoundary>
       )}
     </div>
   );
