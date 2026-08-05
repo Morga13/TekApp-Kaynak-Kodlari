@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { Musteri, Bakim } from "../types";
-import { Search, Plus, Phone, MapPin, FileText, Edit2, Trash2, Eye, X, Smartphone, MessageSquare, LocateFixed, Loader2, Wallet } from "lucide-react";
+import { Search, Plus, Phone, MapPin, FileText, Edit2, Trash2, Eye, X, Smartphone, MessageSquare, LocateFixed, Loader2, Wallet, Map } from "lucide-react";
 import { Contacts } from "@capacitor-community/contacts";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from '@capacitor/core';
 import { getMusteriCariOzet, saveTahsilat } from "../utils/cari";
+import KonumKaydet, { KonumPayload } from "./KonumKaydet";
 
 interface MusteriListesiProps {
   musteriler: Musteri[];
@@ -45,6 +46,7 @@ export default function MusteriListesi({
   const [error, setError] = useState<string | null>(null);
   const [konumYukleniyor, setKonumYukleniyor] = useState(false);
   const [konumHata, setKonumHata] = useState<string | null>(null);
+  const [konumKaydetOpen, setKonumKaydetOpen] = useState(false);
 
   // Hızlı Ödeme Al Modalı State
   const [odemeModalMusteri, setOdemeModalMusteri] = useState<Musteri | null>(null);
@@ -537,21 +539,31 @@ export default function MusteriListesi({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-bold text-slate-600">Adres</label>
-                  <button
-                    type="button"
-                    onClick={handleKonumuKullan}
-                    disabled={konumYukleniyor}
-                    className="flex items-center gap-1 px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-lg text-[10px] font-bold transition active:scale-95 disabled:opacity-50"
-                  >
-                    {konumYukleniyor
-                      ? <Loader2 className="h-3 w-3 animate-spin" />
-                      : <LocateFixed className="h-3 w-3" />
-                    }
-                    {konumYukleniyor ? "Konum alınıyor..." : "Konumumu Kullan"}
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setKonumKaydetOpen(true)}
+                      className="flex items-center gap-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold transition active:scale-95"
+                    >
+                      <Map className="h-3 w-3" />
+                      Haritadan Seç
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleKonumuKullan}
+                      disabled={konumYukleniyor}
+                      className="flex items-center gap-1 px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-lg text-[10px] font-bold transition active:scale-95 disabled:opacity-50"
+                    >
+                      {konumYukleniyor
+                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                        : <LocateFixed className="h-3 w-3" />
+                      }
+                      {konumYukleniyor ? "Alınıyor..." : "GPS Konum"}
+                    </button>
+                  </div>
                 </div>
                 <textarea
-                  placeholder="Müşterinin adresi (Konumumu Kullan ile otomatik doldurup manuel kat/daire ekleyebilirsiniz)"
+                  placeholder="Müşterinin adresi (Haritadan Seç veya GPS Konum ile otomatik doldurup detaylandırabilirsiniz)"
                   value={adres}
                   onChange={(e) => setAdres(e.target.value)}
                   rows={3}
@@ -751,6 +763,28 @@ export default function MusteriListesi({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Haritadan Adres Seç — Tam Ekran Overlay ────────── */}
+      {konumKaydetOpen && (
+        <div className="fixed inset-0 z-[60] bg-white dark:bg-slate-950">
+          <KonumKaydet
+            onSubmit={(payload: KonumPayload) => {
+              // Seçilen adres bilgilerini birleştirip adres alanına yaz
+              const detayParts = [
+                payload.auto_address,
+                payload.building_name && `${payload.building_name}`,
+                payload.block && `Blok: ${payload.block}`,
+                payload.floor && `Kat: ${payload.floor}`,
+                payload.door_number && `Daire: ${payload.door_number}`,
+                payload.address_note && `(${payload.address_note})`,
+              ].filter(Boolean);
+              setAdres(detayParts.join(", "));
+              setKonumKaydetOpen(false);
+            }}
+            onClose={() => setKonumKaydetOpen(false)}
+          />
         </div>
       )}
     </div>
