@@ -35,18 +35,33 @@ class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const errMsg = this.state.error?.message || "Bilinmeyen hata";
+      const errStack = this.state.error?.stack?.split("\n").slice(0, 4).join("\n") || "";
+
       return (
         <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 bg-slate-900 text-white text-center">
           <div className="h-16 w-16 bg-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center mb-4 border border-rose-500/30">
             <AlertTriangle className="h-8 w-8 animate-pulse" />
           </div>
           <h1 className="text-xl font-bold mb-2 text-slate-100">Bir Hata Oluştu</h1>
-          <p className="text-xs text-slate-400 max-w-xs mb-6 leading-relaxed">
+          <p className="text-xs text-slate-400 max-w-xs mb-3 leading-relaxed">
             Uygulama çalışırken beklenmeyen bir aksaklık yaşandı. Verileriniz güvendedir.
           </p>
+
+          {/* Hata Detayı — geliştirici için */}
+          <div className="w-full max-w-sm bg-slate-800 border border-rose-500/30 rounded-xl p-3 mb-6 text-left">
+            <p className="text-[10px] font-bold text-rose-400 uppercase mb-1">Hata Detayı</p>
+            <p className="text-[11px] font-mono text-rose-300 break-all leading-relaxed">{errMsg}</p>
+            {errStack && (
+              <pre className="mt-2 text-[9px] font-mono text-slate-500 whitespace-pre-wrap break-all leading-relaxed">
+                {errStack}
+              </pre>
+            )}
+          </div>
+
           <button
             onClick={this.handleReload}
-            className="flex items-center gap-2 px-5 py-2.5 bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500 active:scale-95 text-white text-xs font-bold rounded-xl transition shadow-sm"
+            className="flex items-center gap-2 px-5 py-2.5 bg-sky-700 hover:bg-sky-800 active:scale-95 text-white text-xs font-bold rounded-xl transition shadow-sm"
           >
             <RefreshCw className="h-4 w-4" />
             Uygulamayı Yeniden Başlat
