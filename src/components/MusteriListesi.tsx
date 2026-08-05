@@ -709,13 +709,9 @@ export default function MusteriListesi({
                 onSubmit={(payload: KonumPayload) => {
                   const detayParts = [
                     payload.auto_address,
-                    payload.building_name && `${payload.building_name}`,
-                    payload.block && `Blok: ${payload.block}`,
-                    payload.floor && `Kat: ${payload.floor}`,
-                    payload.door_number && `Daire: ${payload.door_number}`,
-                    payload.address_note && `(${payload.address_note})`,
+                    payload.address_note && `${payload.address_note}`,
                   ].filter(Boolean);
-                  setAdres(detayParts.join(", "));
+                  setAdres(detayParts.join(" - "));
                   setKonumKaydetOpen(false);
                 }}
                 onClose={() => setKonumKaydetOpen(false)}

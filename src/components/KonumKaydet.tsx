@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   MapPin, Navigation, Save, X, Loader2, AlertTriangle,
-  ChevronUp, ChevronDown, Building2, Layers, DoorOpen,
-  StickyNote, LocateFixed, Settings
+  ChevronUp, ChevronDown, Building2, StickyNote, LocateFixed, Settings
 } from "lucide-react";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
@@ -13,10 +12,6 @@ export interface KonumPayload {
   latitude: number;
   longitude: number;
   auto_address: string;
-  building_name: string;
-  block: string;
-  floor: string;
-  door_number: string;
   address_note: string;
 }
 
@@ -65,10 +60,6 @@ export default function KonumKaydet({
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationError, setLocationError] = useState<string | null>(null);
   const [autoAddress, setAutoAddress] = useState(initialData?.auto_address || "");
-  const [buildingName, setBuildingName] = useState(initialData?.building_name || "");
-  const [block, setBlock] = useState(initialData?.block || "");
-  const [floor, setFloor] = useState(initialData?.floor || "");
-  const [doorNumber, setDoorNumber] = useState(initialData?.door_number || "");
   const [addressNote, setAddressNote] = useState(initialData?.address_note || "");
   const [isFormExpanded, setIsFormExpanded] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -195,16 +186,16 @@ export default function KonumKaydet({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let map: any = null;
     const container = mapContainerRef.current;
 
     (async () => {
       try {
-        // Lazy import — DOM hazır olduğunda çalışır, global scope'ta değil
         const L = (await import("leaflet")).default;
         if (!isMountedRef.current || !container) return;
 
-        // Eğer container zaten başlatılmışsa temizle
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((container as any)._leaflet_id) return;
 
         const defaultCenter: [number, number] = initialCoords
@@ -222,14 +213,13 @@ export default function KonumKaydet({
         L.control.zoom({ position: "bottomright" }).addTo(map);
         mapRef.current = map;
 
-        // Haritaya tıkla → pin taşı
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         map.on("click", async (e: any) => {
           if (!isMountedRef.current) return;
           setCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
           await placeMarker(e.latlng.lat, e.latlng.lng);
         });
 
-        // Başlangıç konumu varsa marker koy
         if (initialCoords) {
           await placeMarker(initialCoords.latitude, initialCoords.longitude);
         }
@@ -253,7 +243,6 @@ export default function KonumKaydet({
   // ─── İlk açılışta otomatik konum al ───────────────────────
   useEffect(() => {
     if (!initialCoords) {
-      // Harita DOM'a mount olduktan sonra GPS'i başlat
       const t = setTimeout(() => { fetchLocation(); }, 300);
       return () => clearTimeout(t);
     }
@@ -269,16 +258,12 @@ export default function KonumKaydet({
         latitude: coords.lat,
         longitude: coords.lng,
         auto_address: autoAddress,
-        building_name: buildingName,
-        block,
-        floor,
-        door_number: doorNumber,
         address_note: addressNote,
       });
     } finally {
       if (isMountedRef.current) setIsSaving(false);
     }
-  }, [coords, autoAddress, buildingName, block, floor, doorNumber, addressNote, onSubmit]);
+  }, [coords, autoAddress, addressNote, onSubmit]);
 
   const canSave = useMemo(() => coords !== null && autoAddress.trim().length > 0, [coords, autoAddress]);
 
@@ -307,13 +292,13 @@ export default function KonumKaydet({
         </button>
         <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <MapPin className="h-4 w-4 text-sky-700 dark:text-sky-400" />
-          Pin ile Adres Kaydet
+          Pin ile Adres Konumu Seç
         </h2>
         <div className="w-8" />
       </div>
 
       {/* Harita */}
-      <div className="relative flex-1 min-h-0" style={{ minHeight: isFormExpanded ? "40%" : "70%" }}>
+      <div className="relative flex-1 min-h-0" style={{ minHeight: isFormExpanded ? "45%" : "75%" }}>
         <div
           ref={mapContainerRef}
           className="absolute inset-0 z-0"
@@ -385,7 +370,7 @@ export default function KonumKaydet({
       {/* Form (Bottom Sheet) */}
       <div
         className={`bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 transition-all duration-300 overflow-y-auto shrink-0 ${
-          isFormExpanded ? "max-h-[60%]" : "max-h-14"
+          isFormExpanded ? "max-h-[55%]" : "max-h-14"
         }`}
       >
         <button
@@ -394,7 +379,7 @@ export default function KonumKaydet({
         >
           <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
             <Building2 className="h-4 w-4 text-sky-700 dark:text-sky-400" />
-            Adres Detayları
+            Adres Bilgisi
           </span>
           {isFormExpanded
             ? <ChevronDown className="h-4 w-4 text-slate-400" />
@@ -418,51 +403,18 @@ export default function KonumKaydet({
               />
             </div>
 
-            {/* Apartman + Blok */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Apartman / Bina</label>
-                <input type="text" value={buildingName} onChange={(e) => setBuildingName(e.target.value)}
-                  placeholder="Örn: Yıldız Apt."
-                  className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-700 dark:text-slate-100 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Blok / Giriş</label>
-                <input type="text" value={block} onChange={(e) => setBlock(e.target.value)}
-                  placeholder="Örn: B Blok"
-                  className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-700 dark:text-slate-100 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition" />
-              </div>
-            </div>
-
-            {/* Kat + Daire */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide flex items-center gap-1">
-                  <Layers className="h-3 w-3" /> Kat No
-                </label>
-                <input type="text" inputMode="numeric" value={floor} onChange={(e) => setFloor(e.target.value)}
-                  placeholder="Örn: 3"
-                  className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-700 dark:text-slate-100 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide flex items-center gap-1">
-                  <DoorOpen className="h-3 w-3" /> Daire No
-                </label>
-                <input type="text" inputMode="numeric" value={doorNumber} onChange={(e) => setDoorNumber(e.target.value)}
-                  placeholder="Örn: 7"
-                  className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-700 dark:text-slate-100 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 transition" />
-              </div>
-            </div>
-
-            {/* Adres Notu */}
+            {/* Adres Detayı */}
             <div>
               <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide flex items-center gap-1">
-                <StickyNote className="h-3 w-3" /> Adres Tarifi / Notu
+                <StickyNote className="h-3 w-3" /> Adres Detayı
               </label>
-              <textarea value={addressNote} onChange={(e) => setAddressNote(e.target.value)}
+              <textarea
+                value={addressNote}
+                onChange={(e) => setAddressNote(e.target.value)}
                 rows={2}
-                placeholder="Örn: Mavi binanın arkasında, market karşısı..."
-                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-700 dark:text-slate-100 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 resize-none transition" />
+                placeholder="Örn: Yıldız Apt. B Blok Kat: 3 Daire: 7 (Market karşısı)..."
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-700 dark:text-slate-100 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 resize-none transition"
+              />
             </div>
 
             {/* Uyarı (konum varken) */}
@@ -484,8 +436,8 @@ export default function KonumKaydet({
               }`}
             >
               {isSaving
-                ? <><Loader2 className="h-4 w-4 animate-spin" />Kaydediliyor...</>
-                : <><Save className="h-4 w-4" />Konumu Kaydet</>
+                ? <><Loader2 className="h-4 w-4 animate-spin" />Aktarılıyor...</>
+                : <><Save className="h-4 w-4" />Adresi Aktar</>
               }
             </button>
 
