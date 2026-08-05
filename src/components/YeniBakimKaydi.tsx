@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Musteri, Parca } from "../types";
 import { Check, ChevronDown, ChevronUp, Save, Plus, AlertCircle, Search } from "lucide-react";
 import { generateTaksitPlani, saveTaksitler } from "../utils/cari";
@@ -74,7 +74,7 @@ export default function YeniBakimKaydi({
     );
   };
 
-  const calculateTotal = () => {
+  const calculatedTotal = useMemo(() => {
     let sum = 0;
     secilenParcalar.forEach((item) => {
       const p = parcalar.find((x) => x.id === item.parcaId);
@@ -83,7 +83,11 @@ export default function YeniBakimKaydi({
       }
     });
     return sum;
-  };
+  }, [secilenParcalar, parcalar]);
+
+  const filteredParcalar = useMemo(() => {
+    return parcalar.filter((p) => p.ad.toLowerCase().includes(parcaSearch.toLowerCase()));
+  }, [parcalar, parcaSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,7 +117,6 @@ export default function YeniBakimKaydi({
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
 
-    const calculatedTotal = calculateTotal();
     const finalTotal = ozelFiyat && !isNaN(Number(ozelFiyat)) ? Number(ozelFiyat) : calculatedTotal;
 
     onSave({
@@ -136,21 +139,21 @@ export default function YeniBakimKaydi({
   const selectedCustomer = musteriler.find((m) => m.id === secilenMusteriId);
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full bg-slate-50 overflow-y-auto p-4 pb-24 space-y-4">
+    <form onSubmit={handleSubmit} className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-y-auto p-4 pb-24 space-y-4">
       {/* Müşteri Seçici */}
       <div className="relative">
-        <label className="block text-xs font-bold text-slate-600 mb-1">Müşteri Seçimi</label>
+        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Müşteri Seçimi</label>
         <button
           type="button"
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          className="w-full flex justify-between items-center bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
+          className="w-full flex justify-between items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-700 dark:text-slate-300 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
         >
           <span>{selectedCustomer ? selectedCustomer.ad : "Bir Müşteri Seçin..."}</span>
           {dropdownOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
         </button>
 
         {dropdownOpen && (
-          <div className="absolute top-[68px] inset-x-0 bg-white border border-slate-200 rounded-xl shadow-lg z-20 max-h-48 overflow-y-auto py-1 animate-scale">
+          <div className="absolute top-[68px] inset-x-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm z-20 max-h-48 overflow-y-auto py-1 animate-scale">
             {musteriler.length > 0 ? (
               musteriler.map((m) => (
                 <button
@@ -161,7 +164,7 @@ export default function YeniBakimKaydi({
                     setDropdownOpen(false);
                   }}
                   className={`w-full text-left px-4 py-2 text-xs transition flex items-center justify-between gap-2 ${
-                    secilenMusteriId === m.id ? "bg-sky-50 text-sky-700 font-semibold" : "text-slate-700 hover:bg-slate-50"
+                    secilenMusteriId === m.id ? "bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 font-semibold" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
                   }`}
                 >
                   <div className="flex flex-col">
@@ -181,20 +184,20 @@ export default function YeniBakimKaydi({
 
       {/* İşlem Tarihi */}
       <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1">İşlem Tarihi</label>
+        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">İşlem Tarihi</label>
         <input
           type="date"
           required
           value={tarih}
           onChange={(e) => setTarih(e.target.value)}
-          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
         />
       </div>
 
       {/* Katalogdan Ürün / Hizmet Seçimi */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-xs font-bold text-slate-600">Katalogdan Ürün / Hizmet Seçimi (Otomatik Fiyatlandırılır)</label>
+          <label className="block text-xs font-bold text-slate-600 dark:text-slate-400">Katalogdan Ürün / Hizmet Seçimi (Otomatik Fiyatlandırılır)</label>
           {secilenParcalar.length > 0 && (
             <button
               type="button"
@@ -213,20 +216,19 @@ export default function YeniBakimKaydi({
             placeholder="Katalogda ürün veya hizmet ara..."
             value={parcaSearch}
             onChange={(e) => setParcaSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
+            className="w-full pl-8 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
           />
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden max-h-60 overflow-y-auto">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl divide-y divide-slate-100 dark:divide-slate-700 overflow-hidden max-h-60 overflow-y-auto">
           {parcalar.length > 0 ? (() => {
-            const filtered = parcalar.filter((p) => p.ad.toLowerCase().includes(parcaSearch.toLowerCase()));
-            if (filtered.length === 0) return (
+            if (filteredParcalar.length === 0) return (
               <div className="p-4 text-center text-xs text-slate-400 flex flex-col items-center gap-1.5">
                 <Search className="h-5 w-5 text-slate-300" />
                 <span>"{parcaSearch}" için katalogda kayıt bulunamadı.</span>
               </div>
             );
-            return filtered.map((p) => {
+            return filteredParcalar.map((p) => {
               const selectedItem = secilenParcalar.find((item) => item.parcaId === p.id);
               const isSelected = !!selectedItem;
               return (
@@ -243,13 +245,13 @@ export default function YeniBakimKaydi({
                   >
                     <div
                       className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 transition ${
-                        isSelected ? "bg-sky-500 border-sky-500 text-white" : "border-slate-300"
+                        isSelected ? "bg-sky-700 border-sky-700 dark:bg-sky-600 dark:border-sky-600 text-white" : "border-slate-300 dark:border-slate-600"
                       }`}
                     >
                       {isSelected && <Check className="h-3 w-3" />}
                     </div>
                     <div>
-                      <span className="text-xs font-semibold text-slate-800 block">{p.ad}</span>
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 block">{p.ad}</span>
                       <span className="text-[11px] text-emerald-600 font-bold font-mono">
                         {p.fiyat.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
                       </span>
@@ -261,15 +263,15 @@ export default function YeniBakimKaydi({
                       <button
                         type="button"
                         onClick={() => updateAdet(p.id, -1)}
-                        className="h-6 w-6 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center justify-center font-bold text-sm focus:outline-none"
+                        className="h-6 w-6 rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 flex items-center justify-center font-bold text-sm focus:outline-none"
                       >
                         -
                       </button>
-                      <span className="text-xs font-bold font-mono text-slate-800">{selectedItem.adet}</span>
+                      <span className="text-xs font-bold font-mono text-slate-800 dark:text-slate-200">{selectedItem.adet}</span>
                       <button
                         type="button"
                         onClick={() => updateAdet(p.id, 1)}
-                        className="h-6 w-6 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center justify-center font-bold text-sm focus:outline-none"
+                        className="h-6 w-6 rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 flex items-center justify-center font-bold text-sm focus:outline-none"
                       >
                         +
                       </button>
@@ -289,80 +291,80 @@ export default function YeniBakimKaydi({
 
       {/* İşlem Notu */}
       <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1">Açıklama / Not (Opsiyonel)</label>
+        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Açıklama / Not (Opsiyonel)</label>
         <textarea
           placeholder="İşlem ile ilgili not..."
           value={not}
           onChange={(e) => setNot(e.target.value)}
           rows={2}
-          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
+          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
         />
       </div>
 
       {/* Ödeme Durumu */}
       <div className="space-y-2">
-        <label className="block text-xs font-bold text-slate-600">Ödeme Durumu</label>
+        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400">Ödeme Durumu</label>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setOdendi(1)}
             className={`py-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
-              odendi === 1
-                ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <span className={`h-2 w-2 rounded-full ${odendi === 1 ? "bg-emerald-500" : "bg-slate-300"}`} />
-            Peşin Ödendi
-          </button>
-          <button
-            type="button"
-            onClick={() => setOdendi(0)}
-            className={`py-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
-              odendi === 0
-                ? "bg-rose-50 text-rose-700 border-rose-300"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <span className={`h-2 w-2 rounded-full ${odendi === 0 ? "bg-rose-500" : "bg-slate-300"}`} />
+                odendi === 1
+                  ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700/50"
+                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+              }`}
+            >
+              <span className={`h-2 w-2 rounded-full ${odendi === 1 ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`} />
+              Peşin Ödendi
+            </button>
+            <button
+              type="button"
+              onClick={() => setOdendi(0)}
+              className={`py-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                odendi === 0
+                  ? "bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-700/50"
+                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+              }`}
+            >
+              <span className={`h-2 w-2 rounded-full ${odendi === 0 ? "bg-rose-500" : "bg-slate-300 dark:bg-slate-600"}`} />
             Borç Kaydı (Ödeme Bekliyor)
           </button>
         </div>
       </div>
 
       {/* Fiyat Tutar Özeti */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shrink-0">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-3 shrink-0">
         <div className="flex justify-between items-center text-xs">
-          <span className="font-semibold text-slate-600">Katalog Tutar Toplamı:</span>
-          <span className="font-bold text-slate-800 font-mono">
-            {calculateTotal().toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
+          <span className="font-semibold text-slate-600 dark:text-slate-400">Katalog Tutar Toplamı:</span>
+          <span className="font-bold text-slate-800 dark:text-slate-100 font-mono">
+            {calculatedTotal.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
           </span>
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-600 mb-1">
-            İndirimli / Özel Son Fiyat (TL) <span className="text-[10px] text-slate-400 font-normal">(Opsiyonel)</span>
+          <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+            İndirimli / Özel Son Fiyat (TL) <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">(Opsiyonel)</span>
           </label>
           <input
             type="number"
-            placeholder={`Örn: ${calculateTotal() > 0 ? calculateTotal() - 200 : 1000}`}
+            placeholder={`Örn: ${calculatedTotal > 0 ? calculatedTotal - 200 : 1000}`}
             value={ozelFiyat}
             onChange={(e) => setOzelFiyat(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
+            className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
           />
         </div>
 
-        <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
-          <span className="text-xs font-bold text-emerald-800">Kaydedilecek Borç / İşlem Tutarı:</span>
-          <span className="text-lg font-black text-emerald-600 font-mono">
-            {(ozelFiyat && !isNaN(Number(ozelFiyat)) ? Number(ozelFiyat) : calculateTotal()).toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+          <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400">Kaydedilecek Borç / İşlem Tutarı:</span>
+          <span className="text-lg font-black text-emerald-600 dark:text-emerald-500 font-mono">
+            {(ozelFiyat && !isNaN(Number(ozelFiyat)) ? Number(ozelFiyat) : calculatedTotal).toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
           </span>
         </div>
       </div>
 
       <button
         type="submit"
-        className="w-full bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white rounded-lg py-3 flex items-center justify-center gap-2 font-bold text-sm shadow-md transition"
+        className="w-full bg-sky-700 hover:bg-sky-800 active:bg-sky-900 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-xl py-3 flex items-center justify-center gap-2 font-bold text-sm shadow-sm transition"
       >
         <Save className="h-4.5 w-4.5" />
         Kaydı Tamamla

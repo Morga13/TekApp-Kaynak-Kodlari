@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Parca, StokKalemi } from "../types";
 import { Search, Plus, Wrench, Edit2, Trash2, X, Package } from "lucide-react";
 import { getStokDurumu, calculateEffectiveStock } from "../db/stok";
@@ -52,12 +52,12 @@ export default function ParcaKatalogu({
   const [ad, setAd] = useState("");
   const [fiyat, setFiyat] = useState("");
 
-  const filtered = parcalar.filter((p) => p.ad.toLowerCase().includes(search.toLowerCase()));
+  const filtered = useMemo(() => parcalar.filter((p) => p.ad.toLowerCase().includes(search.toLowerCase())), [parcalar, search]);
 
   // Uyarı gerektiren parça sayısını hesapla (efektif stoka göre)
-  const uyariSayisi = parcalar.filter(
+  const uyariSayisi = useMemo(() => parcalar.filter(
     (p) => getStokDurumu(p.ad, calculateEffectiveStock(p.ad, stokKalemleri)) !== "normal"
-  ).length;
+  ).length, [parcalar, stokKalemleri]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,9 +90,9 @@ export default function ParcaKatalogu({
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900">
       {/* Search Header */}
-      <div className="p-4 bg-white border-b border-slate-200 flex flex-col gap-3">
+      <div className="p-4 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-3">
         <div className="relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
           <input
@@ -100,7 +100,7 @@ export default function ParcaKatalogu({
             placeholder="Parça adı ile ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
           />
         </div>
         {/* Stok uyarı özeti */}
@@ -123,11 +123,11 @@ export default function ParcaKatalogu({
             return (
               <div
                 key={p.id}
-                className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition"
+                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition"
               >
                 <div className="flex justify-between items-start gap-3">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-slate-800 text-sm truncate">{p.ad}</h3>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-sm truncate">{p.ad}</h3>
                     <span className="text-emerald-600 font-bold font-mono text-sm mt-0.5 block">
                       {p.fiyat.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
                     </span>
@@ -163,11 +163,11 @@ export default function ParcaKatalogu({
           })
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+            <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
               <Wrench className="h-6 w-6" />
             </div>
-            <p className="text-slate-500 font-medium text-sm">Kayıtlı Parça Bulunamadı</p>
-            <p className="text-slate-400 text-xs mt-1">Parça eklemek için aşağıdaki + butonunu kullanın.</p>
+            <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">Kayıtlı Parça Bulunamadı</p>
+            <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Parça eklemek için aşağıdaki + butonunu kullanın.</p>
           </div>
         )}
       </div>
@@ -178,7 +178,7 @@ export default function ParcaKatalogu({
           setEditId(undefined);
           setModalOpen(true);
         }}
-        className="absolute bottom-20 right-6 h-12 w-12 rounded-full bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20 flex items-center justify-center transition active:scale-95"
+        className="fixed bottom-20 right-6 h-12 w-12 rounded-full bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500 text-white shadow-sm flex items-center justify-center transition active:scale-95"
       >
         <Plus className="h-6 w-6" />
       </button>
@@ -186,9 +186,9 @@ export default function ParcaKatalogu({
       {/* Add/Edit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-slide-up">
-            <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800 text-[15px]">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm w-full max-w-sm overflow-hidden animate-slide-up">
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-[15px]">
                 {editId ? "Parçayı Düzenle" : "Yeni Parça Ekle"}
               </h3>
               <button onClick={closeModal} className="p-1 rounded-full hover:bg-slate-200 text-slate-400 transition">
@@ -197,19 +197,19 @@ export default function ParcaKatalogu({
             </div>
             <form onSubmit={handleSubmit} className="p-4 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Parça Adı</label>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Parça Adı</label>
                 <input
                   type="text"
                   required
                   placeholder="Örn: Membran"
                   value={ad}
                   onChange={(e) => setAd(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Fiyat (TL)</label>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Fiyat (TL)</label>
                 <input
                   type="number"
                   required
@@ -218,7 +218,7 @@ export default function ParcaKatalogu({
                   placeholder="Örn: 1250"
                   value={fiyat}
                   onChange={(e) => setFiyat(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
                 />
               </div>
 
@@ -226,13 +226,13 @@ export default function ParcaKatalogu({
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-semibold transition"
+                  className="flex-1 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg text-sm font-semibold transition"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-semibold transition"
+                  className="flex-1 py-2 bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-lg text-sm font-semibold transition"
                 >
                   Kaydet
                 </button>

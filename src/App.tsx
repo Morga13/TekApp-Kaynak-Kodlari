@@ -321,7 +321,7 @@ export default function App() {
 
   const getBackupPayload = () => ({ musteriler, parcalar, bakimlar });
 
-  const getSortedParcalar = () => {
+  const sortedParcalar = React.useMemo(() => {
     const usageCount: { [key: number]: number } = {};
     parcalar.forEach(p => { usageCount[p.id] = 0; });
     bakimlar.forEach(b => {
@@ -334,7 +334,7 @@ export default function App() {
       } catch { /* ignore */ }
     });
     return [...parcalar].sort((a, b) => (usageCount[b.id] || 0) - (usageCount[a.id] || 0));
-  };
+  }, [parcalar, bakimlar]);
 
   const navigateToTab = (tab: TabType) => {
     setActiveTab(tab);
@@ -396,7 +396,7 @@ export default function App() {
         <YeniBakimKaydi
           initialMusteriId={preSelectedMusteriId}
           musteriler={musteriler}
-          parcalar={getSortedParcalar()}
+          parcalar={sortedParcalar}
           onSave={handleSaveBakim}
           onNavigateToMusteriDetail={(id) => { handleSelectMusteri(id); setActiveTab("musteriler"); }}
         />
@@ -432,7 +432,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-white overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="flex flex-col h-screen w-screen bg-white overflow-hidden">
 
       {/* Mobil üst başlık */}
       <header className="bg-slate-900 text-white px-4 pt-safe flex items-center justify-between shrink-0 border-b border-slate-800"

@@ -185,6 +185,16 @@ export default function StokYonetimi({
     );
   }, [parcalar, searchKatalogLower]);
 
+  const efektifStoklar = React.useMemo(() => {
+    const hesaplanan: Record<number, number> = {};
+    filteredParcalar.forEach((p) => {
+      if (p.id !== undefined) {
+        hesaplanan[p.id] = calculateEffectiveStock(p.ad, stokKalemleri);
+      }
+    });
+    return hesaplanan;
+  }, [filteredParcalar, stokKalemleri]);
+
   const renderKalem = (k: StokKalemi) => {
     const stil = stokStil(k.ad, k.miktar);
     const displayVal = editValues[k.id] !== undefined ? editValues[k.id] : k.miktar.toString();
@@ -353,7 +363,7 @@ export default function StokYonetimi({
 
           {filteredParcalar.length > 0 ? (
             filteredParcalar.map((p) => {
-              const efektifStok = calculateEffectiveStock(p.ad, stokKalemleri);
+              const efektifStok = p.id !== undefined ? (efektifStoklar[p.id] || 0) : calculateEffectiveStock(p.ad, stokKalemleri);
               const stil = stokStil(p.ad, efektifStok);
               return (
                 <div key={p.id} className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition">
@@ -411,7 +421,7 @@ export default function StokYonetimi({
       {subTab === "stok" ? (
         <button
           onClick={() => setAddModalOpen(true)}
-          className="fixed bottom-20 right-6 h-12 w-12 rounded-full bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20 flex items-center justify-center transition active:scale-95 z-40"
+          className="fixed bottom-20 right-6 h-12 w-12 rounded-full bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500 text-white shadow-sm flex items-center justify-center transition active:scale-95 z-40"
           title="Yeni Stok & Katalog Ürünü Ekle"
         >
           <PlusCircle className="h-6 w-6" />
@@ -424,7 +434,7 @@ export default function StokYonetimi({
             setParcaFiyat("");
             setKatalogModalOpen(true);
           }}
-          className="fixed bottom-20 right-6 h-12 w-12 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 flex items-center justify-center transition active:scale-95 z-40"
+          className="fixed bottom-20 right-6 h-12 w-12 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm flex items-center justify-center transition active:scale-95 z-40"
           title="Kataloğa Yeni Ürün Ekle"
         >
           <Plus className="h-6 w-6" />
@@ -434,7 +444,7 @@ export default function StokYonetimi({
       {/* Modal: Yeni Stok Kalemi & Katalog Ürünü Ekle */}
       {addModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm dark:bg-slate-800 w-full max-w-sm overflow-hidden">
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-slate-800 text-[15px]">Yeni Stok ve Ürün Ekle</h3>
@@ -465,7 +475,7 @@ export default function StokYonetimi({
                 <button type="button" onClick={() => setAddModalOpen(false)}
                   className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-semibold transition">İptal</button>
                 <button type="submit"
-                  className="flex-1 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-semibold transition">Stoğa ve Kataloğa Ekle</button>
+                  className="flex-1 py-2 bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-lg text-sm font-semibold transition">Stoğa ve Kataloğa Ekle</button>
               </div>
             </form>
           </div>
@@ -475,7 +485,7 @@ export default function StokYonetimi({
       {/* Modal: Stok Ekle (increaseStock) */}
       {increaseModalOpen && selectedKalem && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm dark:bg-slate-800 w-full max-w-sm overflow-hidden">
             <div className="p-4 bg-emerald-50 border-b border-emerald-100 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-slate-800 text-[15px]">Stok Ekle</h3>
@@ -510,7 +520,7 @@ export default function StokYonetimi({
       {/* Modal: Kataloğa Parça Ekle / Düzenle */}
       {katalogModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm dark:bg-slate-800 w-full max-w-sm overflow-hidden">
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <h3 className="font-bold text-slate-800 text-[15px]">
                 {editParcaId ? "Katalog Ürününü Düzenle" : "Yeni Katalog Ürünü"}

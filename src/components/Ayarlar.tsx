@@ -187,7 +187,23 @@ export default function Ayarlar({
       }
     });
 
-    return Object.values(monthsMap).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+    return Object.values(monthsMap)
+      .sort((a, b) => b.monthKey.localeCompare(a.monthKey))
+      .map(m => {
+        const parcaEntries = Object.entries(m.parcalarUsage).sort((a, b) => (b[1] as number) - (a[1] as number));
+        const grouped: Record<string, typeof parcaEntries> = {
+          "Filtreler": [],
+          "Teknik Parçalar": [],
+          "Su Arıtma Cihazları": [],
+          "Diğer": []
+        };
+        parcaEntries.forEach(([ad, adet]) => {
+          const cat = getKategori(ad);
+          if (grouped[cat]) grouped[cat].push([ad, adet]);
+          else grouped["Diğer"].push([ad, adet]);
+        });
+        return { ...m, parcaEntries, grouped };
+      });
   };
 
   const monthlyStats = useMemo(() => getMonthlyStats(), [bakimlar]);
@@ -307,7 +323,7 @@ export default function Ayarlar({
             <div className="space-y-2.5">
               {monthlyStats.map((m) => {
                 const isExpanded = expandedMonth === m.monthKey;
-                const parcaEntries = Object.entries(m.parcalarUsage).sort((a, b) => (b[1] as number) - (a[1] as number));
+                const parcaEntries = m.parcaEntries;
 
                 return (
                   <div
@@ -357,13 +373,13 @@ export default function Ayarlar({
                         {parcaEntries.length > 0 ? (
                           <div className="space-y-4">
                             {["Filtreler", "Teknik Parçalar", "Su Arıtma Cihazları", "Diğer"].map(kategori => {
-                              const kategoriParcalar = parcaEntries.filter(([ad]) => getKategori(ad) === kategori);
-                              if (kategoriParcalar.length === 0) return null;
+                              const kategoriParcalar = m.grouped[kategori];
+                              if (!kategoriParcalar || kategoriParcalar.length === 0) return null;
 
                               return (
                                 <div key={kategori} className="space-y-2">
                                   <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1 border-b border-slate-200 dark:border-slate-800 pb-1.5 flex items-center gap-1.5">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-sky-500 dark:bg-sky-400"></div>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-sky-700 dark:bg-sky-400"></div>
                                     {kategori}
                                   </h4>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -374,7 +390,7 @@ export default function Ayarlar({
                                       >
                                         <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[180px]">{parcaAd}</span>
                                         <span className="font-extrabold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/80 px-2.5 py-1 rounded-md border border-sky-100 dark:border-sky-800/60 font-mono">
-                                          {adet} Adet
+                                          {adet as number} Adet
                                         </span>
                                       </div>
                                     ))}
@@ -581,7 +597,7 @@ export default function Ayarlar({
       {/* 💵 ALACAKLAR SEKME İÇİ ÖDEME AL TAHSİLAT MODALI */}
       {odemeModalMusteri && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden space-y-4">
+          <div className="bg-white rounded-xl shadow-sm dark:bg-slate-800 w-full max-w-sm overflow-hidden space-y-4">
             <div className="p-4 bg-slate-800 text-white flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Wallet className="h-5 w-5 text-emerald-400" />

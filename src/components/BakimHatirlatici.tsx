@@ -20,51 +20,54 @@ export default function BakimHatirlatici({
   const [search, setSearch] = useState("");
   const [filterPeriod, setFilterPeriod] = useState<"geciken" | "hepsi">("geciken");
 
-  const today = new Date();
-
   // Her müşteri için en son bakım tarihini bul
-  const musteriBakimStats = musteriler.map((m) => {
-    const mBakimlar = bakimlar
-      .filter((b) => b.musteri_id === m.id && b.tarih)
-      .sort((a, b) => b.tarih.localeCompare(a.tarih));
+  const musteriBakimStats = React.useMemo(() => {
+    const today = new Date();
+    return musteriler.map((m) => {
+      const mBakimlar = bakimlar
+        .filter((b) => b.musteri_id === m.id && b.tarih)
+        .sort((a, b) => b.tarih.localeCompare(a.tarih));
 
-    const latestBakim = mBakimlar[0];
-    let daysSince: number | null = null;
+      const latestBakim = mBakimlar[0];
+      let daysSince: number | null = null;
 
-    if (latestBakim?.tarih) {
-      const parts = latestBakim.tarih.split("-");
-      if (parts.length === 3) {
-        const bDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        const diffTime = today.getTime() - bDate.getTime();
-        daysSince = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      if (latestBakim?.tarih) {
+        const parts = latestBakim.tarih.split("-");
+        if (parts.length === 3) {
+          const bDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          const diffTime = today.getTime() - bDate.getTime();
+          daysSince = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        }
       }
-    }
 
-    return {
-      musteri: m,
-      latestBakim,
-      daysSince,
-      isOverdue: daysSince === null || daysSince >= 180, // 6 ay (180 gün) üzeri gecikmiş sayılır
-    };
-  });
+      return {
+        musteri: m,
+        latestBakim,
+        daysSince,
+        isOverdue: daysSince === null || daysSince >= 180, // 6 ay (180 gün) üzeri gecikmiş sayılır
+      };
+    });
+  }, [musteriler, bakimlar]);
 
   // Filtreleme
-  const filteredList = musteriBakimStats.filter((item) => {
-    const nameMatch = item.musteri.ad.toLowerCase().includes(search.toLowerCase()) ||
-      (item.musteri.telefon && item.musteri.telefon.includes(search));
+  const filteredList = React.useMemo(() => {
+    return musteriBakimStats.filter((item) => {
+      const nameMatch = item.musteri.ad.toLowerCase().includes(search.toLowerCase()) ||
+        (item.musteri.telefon && item.musteri.telefon.includes(search));
 
-    if (!nameMatch) return false;
+      if (!nameMatch) return false;
 
-    if (filterPeriod === "geciken") {
-      return item.isOverdue;
-    }
-    return true;
-  }).sort((a, b) => {
-    // En uzun süredir bakımsız olanlar en üste
-    const daysA = a.daysSince ?? 9999;
-    const daysB = b.daysSince ?? 9999;
-    return daysB - daysA;
-  });
+      if (filterPeriod === "geciken") {
+        return item.isOverdue;
+      }
+      return true;
+    }).sort((a, b) => {
+      // En uzun süredir bakımsız olanlar en üste
+      const daysA = a.daysSince ?? 9999;
+      const daysB = b.daysSince ?? 9999;
+      return daysB - daysA;
+    });
+  }, [musteriBakimStats, search, filterPeriod]);
 
   const gecikenCount = musteriBakimStats.filter((i) => i.isOverdue).length;
 
@@ -165,7 +168,7 @@ export default function BakimHatirlatici({
           filteredList.map(({ musteri, latestBakim, daysSince, isOverdue }) => (
             <div
               key={musteri.id}
-              className={`bg-white rounded-2xl border p-4 shadow-xs space-y-3 transition hover:shadow-md ${
+              className={`bg-white rounded-xl border p-4 shadow-xs space-y-3 transition hover:shadow-sm ${
                 isOverdue ? "border-rose-200/80" : "border-slate-100"
               }`}
             >
@@ -258,7 +261,7 @@ export default function BakimHatirlatici({
             </div>
           ))
         ) : (
-          <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-400 text-xs flex flex-col items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-400 text-xs flex flex-col items-center gap-2">
             <CheckCircle2 className="h-8 w-8 text-emerald-500 mb-1" />
             <span className="font-bold text-slate-700 text-sm">Bakımı Geciken Müşteri Bulunmuyor</span>
             <span>Tüm müşterilerinizin bakımları güncel durumda.</span>

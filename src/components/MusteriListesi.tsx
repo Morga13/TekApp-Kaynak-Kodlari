@@ -317,6 +317,14 @@ export default function MusteriListesi({
     setModalOpen(false);
   };
 
+  const cariOzetMap = React.useMemo(() => {
+    const map = new Map();
+    filtered.forEach(m => {
+      map.set(m.id, getMusteriCariOzet(m.id, bakimlar));
+    });
+    return map;
+  }, [filtered, bakimlar]);
+
   return (
     <div className="flex flex-col h-full bg-slate-50 w-full max-w-full overflow-x-hidden">
       {/* Search Header */}
@@ -337,7 +345,7 @@ export default function MusteriListesi({
       <div className="flex-1 p-4 overflow-y-auto space-y-3 pb-24 w-full max-w-full overflow-x-hidden">
         {filtered.length > 0 ? (
           filtered.map((m) => {
-            const cari = getMusteriCariOzet(m.id, bakimlar);
+            const cari = cariOzetMap.get(m.id) || { kalanBakiye: 0 };
             return (
               <div
                 key={m.id}
@@ -474,7 +482,7 @@ export default function MusteriListesi({
       {/* Add/Edit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-slide-up">
+          <div className="bg-white rounded-xl shadow-sm dark:bg-slate-800 w-full max-w-sm overflow-hidden animate-slide-up">
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <h3 className="font-bold text-slate-800 text-[15px]">
                 {editId ? "Müşteriyi Düzenle" : "Yeni Müşteri Ekle"}
@@ -596,7 +604,7 @@ export default function MusteriListesi({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-semibold transition"
+                  className="flex-1 py-2 bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-lg text-sm font-semibold transition"
                 >
                   Kaydet
                 </button>
@@ -609,7 +617,7 @@ export default function MusteriListesi({
       {/* Virtual Contacts Selector Modal */}
       {virtualContactsOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-55">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-slide-up">
+          <div className="bg-white rounded-xl shadow-sm dark:bg-slate-800 w-full max-w-sm overflow-hidden animate-slide-up">
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-slate-800 text-[15px]">Rehberden Seç</h3>
@@ -679,7 +687,7 @@ export default function MusteriListesi({
       {/* 💵 ALACAKLAR EKRANINDAN DİREKT ÖDEME AL MODALI */}
       {odemeModalMusteri && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden space-y-4">
+          <div className="bg-white rounded-xl shadow-sm dark:bg-slate-800 w-full max-w-sm overflow-hidden space-y-4">
             <div className="p-4 bg-slate-800 text-white flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Wallet className="h-5 w-5 text-emerald-400" />

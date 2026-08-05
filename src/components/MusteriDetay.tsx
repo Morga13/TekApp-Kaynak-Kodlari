@@ -72,9 +72,9 @@ export default function MusteriDetay({
   onUpdateOdemeDurumu
 }: MusteriDetayProps) {
   const musteri = musteriler.find((m) => m.id === musteriId);
-  const mBakimlar = bakimlar
+  const mBakimlar = React.useMemo(() => bakimlar
     .filter((b) => b.musteri_id === musteriId)
-    .sort((a, b) => b.tarih.localeCompare(a.tarih));
+    .sort((a, b) => b.tarih.localeCompare(a.tarih)), [bakimlar, musteriId]);
 
   // Hatırlatıcı state
   const [hatirlaticiModalOpen, setHatirlaticiModalOpen] = useState(false);
@@ -130,7 +130,7 @@ export default function MusteriDetay({
       <div className="flex flex-col items-center justify-center p-8 text-center bg-slate-50 h-full">
         <ShieldAlert className="h-10 w-10 text-amber-500 mb-2" />
         <p className="text-slate-600 font-medium">Müşteri bulunamadı.</p>
-        <button onClick={onBack} className="mt-4 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-semibold">
+        <button onClick={onBack} className="mt-4 px-4 py-2 bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500 shadow-sm text-white rounded-lg text-sm font-semibold">
           Geri Dön
         </button>
       </div>
@@ -198,7 +198,7 @@ export default function MusteriDetay({
   const hatirlaticiGecmis = kalan !== null && kalan < 0;
   const hatirlaticiYakin = kalan !== null && kalan >= 0 && kalan <= 14;
 
-  const cariOzet = getMusteriCariOzet(musteriId, bakimlar);
+  const cariOzet = React.useMemo(() => getMusteriCariOzet(musteriId, bakimlar), [musteriId, bakimlar]);
 
   return (
     <div
@@ -217,7 +217,7 @@ export default function MusteriDetay({
         
         {/* 1. ÜST BLOK: Müşteri Bilgi Kartı */}
         <div className="flex items-start gap-3">
-          <div className="h-11 w-11 rounded-full bg-sky-500 text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-xs">
+          <div className="h-11 w-11 rounded-full bg-slate-700 dark:bg-slate-600 text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-xs">
             {musteri.ad[0].toUpperCase()}
           </div>
           
@@ -372,7 +372,7 @@ export default function MusteriDetay({
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 active:scale-95 ${
                   aktifHatirlatici
                     ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                    : "bg-sky-500 text-white hover:bg-sky-600 shadow-2xs"
+                    : "bg-sky-700 text-white hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500 shadow-sm"
                 }`}
               >
                 <Clock className="h-3.5 w-3.5" />
@@ -462,7 +462,7 @@ export default function MusteriDetay({
       {/* 💵 ÖDEME AL / TAHSİLAT MODALI */}
       {odemeModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden space-y-4">
+          <div className="bg-white rounded-xl shadow-sm dark:bg-slate-800 w-full max-w-sm overflow-hidden space-y-4">
             <div className="p-4 bg-slate-800 text-white flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Wallet className="h-5 w-5 text-emerald-400" />
@@ -521,7 +521,7 @@ export default function MusteriDetay({
       {/* 🔔 HATIRLATICI MODALI */}
       {hatirlaticiModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm dark:bg-slate-800 w-full max-w-sm overflow-hidden">
             <div className="p-4 bg-amber-50 border-b border-amber-100 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-slate-800 text-[15px]">🔔 Bakım Hatırlatıcısı</h3>
