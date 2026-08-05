@@ -71,8 +71,6 @@ export default function MusteriListesi({
   const [hasAcik, setHasAcik] = useState(false);
   const [hasKapali, setHasKapali] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [konumYukleniyor, setKonumYukleniyor] = useState(false);
-  const [konumHata, setKonumHata] = useState<string | null>(null);
   const [konumKaydetOpen, setKonumKaydetOpen] = useState(false);
 
   // Hızlı Ödeme Al Modalı State
@@ -244,83 +242,6 @@ export default function MusteriListesi({
     }
   };
 
-  // GPS konum al + reverse geocoding (Capacitor Geolocation + Nominatim)
-  const handleKonumuKullan = async () => {
-    setKonumYukleniyor(true);
-    setKonumHata(null);
-
-    let latitude: number | null = null;
-    let longitude: number | null = null;
-
-    try {
-      if (Capacitor.isNativePlatform()) {
-        // Native İzin Kontrolü ve İsteği (Tam Konum / Fine Location zorla)
-        let perm = await Geolocation.checkPermissions();
-        if (perm.location !== 'granted') {
-          perm = await Geolocation.requestPermissions({ permissions: ['location', 'coarseLocation'] });
-        }
-        if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
-          setKonumHata("Konum izni verilmeli. Telefon Ayarları -> İzinler -> Konum kısmından 'Tam Konum' iznini açınız.");
-          setKonumYukleniyor(false);
-          return;
-        }
-
-        // maximumAge: 0 ile önbellekteki eski/yaklaşık konumu pas geçip canlı GPS verisi alıyoruz
-        const pos = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0
-        });
-        latitude = pos.coords.latitude;
-        longitude = pos.coords.longitude;
-      } else {
-        // Web Fallback
-        if (!navigator.geolocation) {
-          setKonumHata("Tarayıcınız konum özelliğini desteklemiyor.");
-          setKonumYukleniyor(false);
-          return;
-        }
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 15000,
-            maximumAge: 0
-          });
-        });
-        latitude = pos.coords.latitude;
-        longitude = pos.coords.longitude;
-      }
-
-      if (latitude !== null && longitude !== null) {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=tr`,
-          { headers: { "User-Agent": "TekApp/1.0" } }
-        );
-        const data = await res.json();
-        const a = data.address || {};
-        const parcalar = [
-          a.road || a.street || a.pedestrian || a.footway || "",
-          a.house_number ? `No:${a.house_number}` : "",
-          a.neighbourhood || a.suburb || a.quarter || "",
-          a.district || a.town || a.city_district || "",
-          a.city || a.county || a.state || "",
-        ].filter(Boolean);
-        const gelenAdres = parcalar.join(", ") || data.display_name || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-        setAdres(gelenAdres);
-      }
-    } catch (err: unknown) {
-      console.error("Konum hatası:", err);
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.toLowerCase().includes("denied") || msg.toLowerCase().includes("disabled")) {
-        setKonumHata("Konum izni veya GPS kapalı. Ayarlardan 'Tam Konum' ve 'Yüksek Hassasiyet' ayarını açınız.");
-      } else {
-        setKonumHata("Konum alınamadı. Lütfen açık alanda GPS bağlantınızı kontrol edin.");
-      }
-    } finally {
-      setKonumYukleniyor(false);
-    }
-  };
-
   const startEdit = (m: Musteri) => {
     setEditId(m.id);
     setAd(m.ad);
@@ -330,7 +251,6 @@ export default function MusteriListesi({
     setHasAcik(notStr.includes("Açık Cihaz"));
     setHasKapali(notStr.includes("Kapalı Cihaz"));
     setError(null);
-    setKonumHata(null);
     setModalOpen(true);
   };
 
@@ -342,7 +262,6 @@ export default function MusteriListesi({
     setHasAcik(false);
     setHasKapali(false);
     setError(null);
-    setKonumHata(null);
     setModalOpen(false);
   };
 
@@ -566,41 +485,22 @@ export default function MusteriListesi({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-bold text-slate-600">Adres</label>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setKonumKaydetOpen(true)}
-                      className="flex items-center gap-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold transition active:scale-95"
-                    >
-                      <MapIcon className="h-3 w-3" />
-                      Haritadan Seç
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleKonumuKullan}
-                      disabled={konumYukleniyor}
-                      className="flex items-center gap-1 px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-lg text-[10px] font-bold transition active:scale-95 disabled:opacity-50"
-                    >
-                      {konumYukleniyor
-                        ? <Loader2 className="h-3 w-3 animate-spin" />
-                        : <LocateFixed className="h-3 w-3" />
-                      }
-                      {konumYukleniyor ? "Alınıyor..." : "GPS Konum"}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setKonumKaydetOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer"
+                  >
+                    <MapPin className="h-3.5 w-3.5 text-sky-600" />
+                    Konum Gir
+                  </button>
                 </div>
                 <textarea
-                  placeholder="Müşterinin adresi (Haritadan Seç veya GPS Konum ile otomatik doldurup detaylandırabilirsiniz)"
+                  placeholder="Müşterinin adresi (Konum Gir düğmesi ile haritadan pin seçip otomatik doldurabilirsiniz)"
                   value={adres}
                   onChange={(e) => setAdres(e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 resize-none"
                 />
-                {konumHata && (
-                  <p className="text-[10px] text-rose-500 mt-1 flex items-center gap-1 font-medium">
-                    <X className="h-3 w-3 shrink-0" />{konumHata}
-                  </p>
-                )}
               </div>
 
               <div>
