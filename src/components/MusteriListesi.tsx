@@ -1,6 +1,6 @@
 import React, { useState, Suspense } from "react";
 import { Musteri, Bakim } from "../types";
-import { Search, Plus, Phone, MapPin, FileText, Edit2, Trash2, Eye, X, Smartphone, MessageSquare, LocateFixed, Loader2, Wallet, Map } from "lucide-react";
+import { Search, Plus, Phone, MapPin, FileText, Edit2, Trash2, Eye, X, Smartphone, MessageSquare, LocateFixed, Loader2, Wallet, Map as MapIcon } from "lucide-react";
 import { Contacts } from "@capacitor-community/contacts";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from '@capacitor/core';
@@ -572,7 +572,7 @@ export default function MusteriListesi({
                       onClick={() => setKonumKaydetOpen(true)}
                       className="flex items-center gap-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold transition active:scale-95"
                     >
-                      <Map className="h-3 w-3" />
+                      <MapIcon className="h-3 w-3" />
                       Haritadan Seç
                     </button>
                     <button
