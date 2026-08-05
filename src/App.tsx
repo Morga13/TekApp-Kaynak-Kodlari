@@ -61,9 +61,18 @@ export default function App() {
       const m = localStorage.getItem(CACHE_KEY_M);
       const p = localStorage.getItem(CACHE_KEY_P);
       const b = localStorage.getItem(CACHE_KEY_B);
-      if (m) setMusteriler(JSON.parse(m));
-      if (p) setParcalar(JSON.parse(p));
-      if (b) setBakimlar(JSON.parse(b));
+      if (m) {
+        const parsed = JSON.parse(m);
+        if (Array.isArray(parsed)) setMusteriler(parsed);
+      }
+      if (p) {
+        const parsed = JSON.parse(p);
+        if (Array.isArray(parsed)) setParcalar(parsed);
+      }
+      if (b) {
+        const parsed = JSON.parse(b);
+        if (Array.isArray(parsed)) setBakimlar(parsed);
+      }
       if (m || p || b) setLoading(false);
     } catch { /* ignore */ }
   }, []);
@@ -81,11 +90,11 @@ export default function App() {
     try {
       if (showSyncing) setSyncing(true);
       const [m, p, b, s] = await Promise.all([getMusteriler(), getParcalar(), getBakimlar(), getStok()]);
-      setMusteriler(m);
-      setParcalar(p);
-      setBakimlar(b);
-      setStokKalemleri(s);
-      saveToCache(m, p, b);
+      if (Array.isArray(m)) setMusteriler(m);
+      if (Array.isArray(p)) setParcalar(p);
+      if (Array.isArray(b)) setBakimlar(b);
+      if (Array.isArray(s)) setStokKalemleri(s);
+      saveToCache(Array.isArray(m) ? m : [], Array.isArray(p) ? p : [], Array.isArray(b) ? b : []);
       setIsOnline(true);
     } catch (err) {
       console.error("Supabase bağlantı hatası:", err);

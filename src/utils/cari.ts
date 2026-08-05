@@ -11,7 +11,9 @@ export function getTahsilatlar(): Tahsilat[] {
   if (typeof window === "undefined") return [];
   try {
     const data = localStorage.getItem(TAHSILATLAR_KEY);
-    return data ? JSON.parse(data) : [];
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -42,7 +44,9 @@ export function getTaksitler(): Taksit[] {
   if (typeof window === "undefined") return [];
   try {
     const data = localStorage.getItem(TAKSITLER_KEY);
-    return data ? JSON.parse(data) : [];
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
