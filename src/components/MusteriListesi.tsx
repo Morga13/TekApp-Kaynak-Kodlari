@@ -225,17 +225,23 @@ export default function MusteriListesi({
 
     try {
       if (Capacitor.isNativePlatform()) {
-        // Native İzin Kontrolü ve İsteği
+        // Native İzin Kontrolü ve İsteği (Tam Konum / Fine Location zorla)
         let perm = await Geolocation.checkPermissions();
-        if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
-          perm = await Geolocation.requestPermissions();
+        if (perm.location !== 'granted') {
+          perm = await Geolocation.requestPermissions({ permissions: ['location', 'coarseLocation'] });
         }
         if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
-          setKonumHata("Konum izni reddedildi. Cihaz ayarlarından TekApp konum iznini açınız.");
+          setKonumHata("Konum izni verilmeli. Telefon Ayarları -> İzinler -> Konum kısmından 'Tam Konum' iznini açınız.");
           setKonumYukleniyor(false);
           return;
         }
-        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
+
+        // maximumAge: 0 ile önbellekteki eski/yaklaşık konumu pas geçip canlı GPS verisi alıyoruz
+        const pos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0
+        });
         latitude = pos.coords.latitude;
         longitude = pos.coords.longitude;
       } else {
@@ -246,7 +252,11 @@ export default function MusteriListesi({
           return;
         }
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 });
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0
+          });
         });
         latitude = pos.coords.latitude;
         longitude = pos.coords.longitude;
@@ -254,13 +264,13 @@ export default function MusteriListesi({
 
       if (latitude !== null && longitude !== null) {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`,
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=tr`,
           { headers: { "User-Agent": "TekApp/1.0" } }
         );
         const data = await res.json();
         const a = data.address || {};
         const parcalar = [
-          a.road || a.pedestrian || a.footway || "",
+          a.road || a.street || a.pedestrian || a.footway || "",
           a.house_number ? `No:${a.house_number}` : "",
           a.neighbourhood || a.suburb || a.quarter || "",
           a.district || a.town || a.city_district || "",
@@ -273,9 +283,9 @@ export default function MusteriListesi({
       console.error("Konum hatası:", err);
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.toLowerCase().includes("denied") || msg.toLowerCase().includes("disabled")) {
-        setKonumHata("Konum izni kapalı. Telefon ayarlarından konum servislerini ve izinleri açınız.");
+        setKonumHata("Konum izni veya GPS kapalı. Ayarlardan 'Tam Konum' ve 'Yüksek Hassasiyet' ayarını açınız.");
       } else {
-        setKonumHata("Konum alınamadı. Lütfen GPS bağlantınızı kontrol edin.");
+        setKonumHata("Konum alınamadı. Lütfen açık alanda GPS bağlantınızı kontrol edin.");
       }
     } finally {
       setKonumYukleniyor(false);
