@@ -18,13 +18,15 @@ workflows:
       - name: Build iOS App
         script: |
           cd ios/App
-          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" COMPILER_INDEX_STORE_ENABLE=NO build
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" COMPILER_INDEX_STORE_ENABLE=NO build || xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" COMPILER_INDEX_STORE_ENABLE=NO build
       - name: Create IPA Package
         script: |
           cd ios/App
           mkdir -p Payload
           find /Users/builder/Library/Developer/Xcode/DerivedData -name "App.app" -type d -exec cp -r {} Payload/ \; || find . -name "App.app" -type d -exec cp -r {} Payload/ \;
-          zip -r TekApp-iOS-Unsigned.ipa Payload
+          zip -r TekApp.ipa Payload
+          cp TekApp.ipa $CM_BUILD_DIR/TekApp.ipa
     artifacts:
+      - TekApp.ipa
+      - ios/App/TekApp.ipa
       - ios/App/TekApp-iOS-Unsigned.ipa
-      - /Users/builder/Library/Developer/Xcode/DerivedData/**/App.app
