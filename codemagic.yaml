@@ -23,9 +23,8 @@ workflows:
         script: |
           cd ios/App
           mkdir -p Payload
-          find . -name "App.app" -type d -exec cp -r {} Payload/ \;
+          find /Users/builder/Library/Developer/Xcode/DerivedData -name "App.app" -type d -exec cp -r {} Payload/ \; || find . -name "App.app" -type d -exec cp -r {} Payload/ \;
           zip -r TekApp-iOS-Unsigned.ipa Payload
     artifacts:
       - ios/App/TekApp-iOS-Unsigned.ipa
-      - ios/App/build/**/*.app
-      - /Users/builder/clone/ios/App/**/*.ipa
+      - /Users/builder/Library/Developer/Xcode/DerivedData/**/App.app
