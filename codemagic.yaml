@@ -15,7 +15,7 @@ workflows:
       - name: Capacitor Sync iOS
         script: |
           npx cap sync ios
-      - name: CocoaPods Install
+      - name: CocoaPods Setup
         script: |
           cd ios/App
           pod install || true
@@ -23,7 +23,12 @@ workflows:
         script: |
           cd ios/App
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO clean build || xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO clean build
+      - name: Create IPA Package
+        script: |
+          cd ios/App
+          mkdir -p Payload
+          find . -name "App.app" -type d -exec cp -r {} Payload/ \;
+          zip -r TekApp-iOS-Unsigned.ipa Payload
     artifacts:
+      - ios/App/TekApp-iOS-Unsigned.ipa
       - ios/App/build/Release-iphoneos/*.app
-      - ios/App/build/Release-iphoneos/*.ipa
-      - ios/App/*.ipa
