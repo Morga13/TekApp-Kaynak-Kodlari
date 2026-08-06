@@ -1,0 +1,29 @@
+workflows:
+  ios-capacitor:
+    name: iOS Capacitor Build
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    environment:
+      node: 20.x
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install dependencies & Build Web
+        script: |
+          npm ci || npm install
+          npm run build
+      - name: Capacitor Sync iOS
+        script: |
+          npx cap sync ios
+      - name: CocoaPods Install
+        script: |
+          cd ios/App
+          pod install || true
+      - name: Build iOS App
+        script: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO clean build || xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO clean build
+    artifacts:
+      - ios/App/build/Release-iphoneos/*.app
+      - ios/App/build/Release-iphoneos/*.ipa
+      - ios/App/*.ipa
