@@ -7,9 +7,9 @@ import { getTahsilatlar, getMusteriCariOzet } from "./cari";
 import { formatDateDDMMYYYY } from "./date";
 
 /**
- * Uygulamanın tüm verilerini (Müşteri Alacakları, Müşteriler, Bakım Kayıtları, Stok/Parçalar, Tahsilatlar)
- * 5 sekmeli (multi-sheet) bir Excel (.xlsx) dosyası olarak dışa aktarır.
- * "Müşteri Alacakları" ilk sayfa (Sheet 1) olarak eklenir.
+ * Uygulamanın tüm verilerini (Bekleyen Ödemeler, Müşteri Alacakları, Müşteriler, Bakım Kayıtları, Stok/Parçalar, Tahsilatlar)
+ * 6 sekmeli (multi-sheet) bir Excel (.xlsx) dosyası olarak dışa aktarır.
+ * "Bekleyen Ödemeler" ilk sayfa (Sheet 1) olarak eklenir.
  */
 export async function exportToExcel(
   musteriler: Musteri[] = [],
@@ -22,7 +22,39 @@ export async function exportToExcel(
 
   const tahsilatlar = getTahsilatlar();
 
-  // ── Sayfa 1: Müşteri Alacakları & Cari Bakiyeler (EN ÖNEMLİ SEKME) ────
+  // ── Sayfa 1: Bekleyen Ödemeler (Ödenmemiş Bakım / Servis Kayıtları - EN ÖNEMLİ) ────
+  const bekleyenBakimlar = bakimlar.filter((b) => b.odendi === 0 || b.odendi === undefined);
+  const bekleyenOdemelerData = bekleyenBakimlar.map((b) => {
+    const m = musteriMap.get(b.musteri_id);
+
+    let parcalarMetni = "-";
+    try {
+      const parsed = typeof b.parcalar === "string" ? JSON.parse(b.parcalar || "[]") : b.parcalar;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parcalarMetni = parsed
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((p: any) => `${p.ad || "Parça"} (x${p.adet || 1})`)
+          .join(", ");
+      }
+    } catch {
+      parcalarMetni = "-";
+    }
+
+    return {
+      "Kayıt ID": b.id,
+      "Müşteri Adı": m ? m.ad : `Müşteri #${b.musteri_id}`,
+      "Telefon": m ? m.telefon || "-" : "-",
+      "Adres": m ? m.adres || "-" : "-",
+      "İşlem Tarihi": formatDateDDMMYYYY(b.tarih),
+      "Bekleyen Tutar (₺)": b.toplam || 0,
+      "Uygulanan İndirim (₺)": b.indirim || 0,
+      "Kullanılan Parçalar / Hizmetler": parcalarMetni,
+      "Ödeme Durumu": "🔴 Bekliyor / Ödenmedi",
+      "Açıklama / Not": b.not || "-"
+    };
+  });
+
+  // ── Sayfa 2: Müşteri Alacakları & Cari Bakiyeler ────────────────────
   const alacaklarData = musteriler.map((m) => {
     const ozet = getMusteriCariOzet(m.id, bakimlar, tahsilatlar);
     return {
@@ -38,7 +70,7 @@ export async function exportToExcel(
     };
   });
 
-  // ── Sayfa 2: Müşteriler (Tüm Liste) ──────────────────────────────────
+  // ── Sayfa 3: Müşteriler (Tüm Liste) ──────────────────────────────────
   const musterilerData = musteriler.map((m) => ({
     "Müşteri ID": m.id,
     "Ad Soyad": m.ad,
@@ -49,11 +81,10 @@ export async function exportToExcel(
     "Kayıt Tarihi": m.created_at ? formatDateDDMMYYYY(m.created_at) : "-"
   }));
 
-  // ── Sayfa 3: Bakım Kayıtları ─────────────────────────────────
+  // ── Sayfa 4: Tüm Bakım Kayıtları ─────────────────────────────
   const bakimlarData = bakimlar.map((b) => {
     const m = musteriMap.get(b.musteri_id);
 
-    // Kullanılan parçaları insan tarafından okunabilir listeye çevir
     let parcalarMetni = "-";
     try {
       const parsed = typeof b.parcalar === "string" ? JSON.parse(b.parcalar || "[]") : b.parcalar;
@@ -80,7 +111,7 @@ export async function exportToExcel(
     };
   });
 
-  // ── Sayfa 4: Stok ve Parçalar ────────────────────────────────
+  // ── Sayfa 5: Stok ve Parçalar ────────────────────────────────
   const parcalarData = parcalar.map((p) => ({
     "Parça ID": p.id,
     "Parça Adı": p.ad,
@@ -88,7 +119,7 @@ export async function exportToExcel(
     "Mevcut Stok Adedi": p.stok ?? 0
   }));
 
-  // ── Sayfa 5: Tahsilatlar & Ödemeler ──────────────────────────
+  // ── Sayfa 6: Tahsilatlar & Ödemeler ──────────────────────────
   const tahsilatData = tahsilatlar.map((t) => {
     const m = musteriMap.get(t.musteri_id);
     return {
@@ -103,6 +134,7 @@ export async function exportToExcel(
   // ── Workbook (Çalışma Kitabı) Oluşturma ──────────────────────
   const workbook = XLSX.utils.book_new();
 
+  const sheetBekleyen = XLSX.utils.json_to_sheet(bekleyenOdemelerData);
   const sheetAlacaklar = XLSX.utils.json_to_sheet(alacaklarData);
   const sheet1 = XLSX.utils.json_to_sheet(musterilerData);
   const sheet2 = XLSX.utils.json_to_sheet(bakimlarData);
@@ -123,16 +155,18 @@ export async function exportToExcel(
     });
   };
 
+  sheetBekleyen["!cols"] = autoWidth(bekleyenOdemelerData);
   sheetAlacaklar["!cols"] = autoWidth(alacaklarData);
   sheet1["!cols"] = autoWidth(musterilerData);
   sheet2["!cols"] = autoWidth(bakimlarData);
   sheet3["!cols"] = autoWidth(parcalarData);
   sheet4["!cols"] = autoWidth(tahsilatData);
 
-  // 1. Sekme olarak Müşteri Alacakları eklenir!
+  // 1. Sekme olarak Bekleyen Ödemeler eklenir!
+  XLSX.utils.book_append_sheet(workbook, sheetBekleyen, "Bekleyen Ödemeler");
   XLSX.utils.book_append_sheet(workbook, sheetAlacaklar, "Müşteri Alacakları");
   XLSX.utils.book_append_sheet(workbook, sheet1, "Müşteriler");
-  XLSX.utils.book_append_sheet(workbook, sheet2, "Bakım Kayıtları");
+  XLSX.utils.book_append_sheet(workbook, sheet2, "Tüm Bakım Kayıtları");
   XLSX.utils.book_append_sheet(workbook, sheet3, "Stok ve Parçalar");
   XLSX.utils.book_append_sheet(workbook, sheet4, "Tahsilatlar");
 
