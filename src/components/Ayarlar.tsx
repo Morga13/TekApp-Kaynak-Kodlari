@@ -1,10 +1,11 @@
 import React, { useRef, useState, useMemo } from "react";
-import { Upload, Download, TrendingUp, CreditCard, ChevronDown, ChevronUp, CheckCircle2, Calendar, PackageCheck, Layers, Database, Sun, Moon, Smartphone, Wallet, X } from "lucide-react";
+import { Upload, Download, TrendingUp, CreditCard, ChevronDown, ChevronUp, CheckCircle2, Calendar, PackageCheck, Layers, Database, Sun, Moon, Smartphone, Wallet, X, FileSpreadsheet } from "lucide-react";
 import { Musteri, Parca, Bakim } from "../types";
 import { COMPOSITE_PARTS_MAPPING } from "../db/stok";
 import { getStoredTheme, applyTheme, ThemeMode } from "../utils/theme";
 import { getMusteriCariOzet, saveTahsilat } from "../utils/cari";
 import { formatDateDDMMYYYY } from "../utils/date";
+import { exportToExcel } from "../utils/excel";
 
 interface AyarlarProps {
   musteriler?: Musteri[];
@@ -48,6 +49,17 @@ export default function Ayarlar({
   const handleSelectTheme = (mode: ThemeMode) => {
     setThemeMode(mode);
     applyTheme(mode);
+  };
+
+  // Trigger Excel (.xlsx) Export
+  const handleExportExcel = () => {
+    try {
+      const backup = getBackupData();
+      exportToExcel(backup.musteriler || musteriler, backup.bakimlar || bakimlar, backup.parcalar || []);
+    } catch (e) {
+      console.error(e);
+      alert("Excel dosyası oluşturulurken bir hata oluştu.");
+    }
   };
 
   // Trigger Local Download of JSON Backup file
@@ -546,21 +558,39 @@ export default function Ayarlar({
             </div>
           </div>
 
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1 pt-1">Veri Yönetimi</h3>
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1 pt-1">Veri Yönetimi & Raporlama</h3>
           
-          {/* Export Card */}
+          {/* Excel Export Card */}
+          <button
+            onClick={handleExportExcel}
+            className="w-full bg-white border border-emerald-200 rounded-xl p-4 flex items-center justify-between shadow-xs hover:shadow-md hover:border-emerald-300 transition text-left focus:outline-none cursor-pointer group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+                <FileSpreadsheet className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="font-bold text-slate-800 text-sm block">Excel Raporu İndir (.xlsx)</span>
+                <span className="text-xs text-slate-400 mt-1 block leading-relaxed">
+                  Müşteriler, Bakım Kayıtları, Stok ve Tahsilatları ayrı sekmeler halinde Excel tablosu olarak kaydet.
+                </span>
+              </div>
+            </div>
+          </button>
+
+          {/* JSON Export Card */}
           <button
             onClick={handleExport}
             className="w-full bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between shadow-xs hover:shadow-md transition text-left focus:outline-none cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
                 <Download className="h-5 w-5" />
               </div>
               <div>
-                <span className="font-bold text-slate-800 text-sm block">Verileri Yedekle (JSON İndir)</span>
+                <span className="font-bold text-slate-800 text-sm block">Sistem Yedeği Al (.json)</span>
                 <span className="text-xs text-slate-400 mt-1 block leading-relaxed">
-                  Tüm müşteri, parça ve bakım kayıtlarını tek bir JSON yedek dosyası olarak kaydet.
+                  Tüm veritabanını geri yüklenebilir tam sistem yedeği olarak kaydet.
                 </span>
               </div>
             </div>

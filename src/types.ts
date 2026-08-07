@@ -5,6 +5,7 @@ export interface Musteri {
   adres: string;
   not: string;
   last_activity_at?: string; // ISO timestamp - en son işlem zamanı (müşteri listesi sıralama için)
+  created_at?: string;
 }
 
 export interface Parca {
