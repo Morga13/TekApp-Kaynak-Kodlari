@@ -30,10 +30,17 @@ import YeniBakimKaydi from "./components/YeniBakimKaydi";
 import StokYonetimi from "./components/StokYonetimi";
 import Ayarlar from "./components/Ayarlar";
 
-import { Users, PlusCircle, Settings, Loader2, Package, Wrench } from "lucide-react";
+import { Users, PlusCircle, Settings, Loader2, Package, Wrench, Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { initTheme } from "./utils/theme";
 import appLogo from "./assets/logo.png";
 import { App as CapApp } from "@capacitor/app";
+
+import {
+  initNetworkListener,
+  processOfflineQueue,
+  addToOfflineQueue,
+  getOfflineQueue,
+} from "./utils/offlineSync";
 
 type TabType = "musteriler" | "yeni-bakim" | "stok" | "ayarlar";
 
@@ -45,7 +52,8 @@ export default function App() {
   const [stokKalemleri, setStokKalemleri] = useState<StokKalemi[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [isOnline, setIsOnline] = useState(isSupabaseConfigured());
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [offlineQueueCount, setOfflineQueueCount] = useState<number>(() => getOfflineQueue().length);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   const [selectedMusteriId, setSelectedMusteriId] = useState<number | null>(null);
@@ -106,14 +114,30 @@ export default function App() {
     }
   }, []);
 
+  // ─── Otomatik Senkronizasyon ve İnternet Dinleyicisi ─────────
+  useEffect(() => {
+    const cleanup = initNetworkListener((connected) => {
+      setIsOnline(connected);
+      if (connected) {
+        setSyncing(true);
+        processOfflineQueue(() => loadAllData(true)).finally(() => {
+          setOfflineQueueCount(getOfflineQueue().length);
+          setSyncing(false);
+        });
+      }
+    });
+    return cleanup;
+  }, [loadAllData]);
+
   const selectedMusteriIdRef = useRef(selectedMusteriId);
   selectedMusteriIdRef.current = selectedMusteriId;
 
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
 
-  // Donanım / Mobil Geri Tuşu (Capacitor Native + Web Popstate) Dinleyicisi
+  // Donanım / Mobil Geri Tuşu Dinleyicisi
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let backListener: any = null;
 
     const setupBackListener = async () => {
@@ -178,6 +202,8 @@ export default function App() {
     };
   }, [loadAllData, loadFromCache]);
 
+  // ─── OFFLINE-FIRST AKSİYON HANDLERLARI ───────────────────────
+
   const handleAddOrEditMusteri = async (m: Omit<Musteri, "id"> & { id?: number }): Promise<boolean> => {
     const isNew = !m.id;
     if (isNew) {
@@ -191,79 +217,162 @@ export default function App() {
         return false;
       }
     }
-    try {
-      const updated = await saveMusteri(m);
-      setMusteriler(updated);
-      if (isNew) {
-        const currentIds = new Set(musteriler.map(i => i.id));
-        const newlyAdded = updated.find(i => !currentIds.has(i.id));
-        if (newlyAdded) handleStartNewBakimFromCustomer(newlyAdded.id);
+
+    const targetId = m.id || Date.now();
+    const musteriObj: Musteri = {
+      id: targetId,
+      ad: m.ad,
+      telefon: m.telefon,
+      adres: m.adres,
+      not: m.not,
+      last_activity_at: new Date().toISOString(),
+    };
+
+    if (isOnline) {
+      try {
+        const updated = await saveMusteri(m);
+        setMusteriler(updated);
+        saveToCache(updated, parcalar, bakimlar);
+        if (isNew) {
+          const newlyAdded = updated.find(i => i.ad === m.ad);
+          if (newlyAdded) handleStartNewBakimFromCustomer(newlyAdded.id);
+        }
+        return true;
+      } catch (err) {
+        console.warn("Çevrimiçi kaydetme başarısız, çevrimdışı kuyruğuna alınıyor:", err);
       }
-      return true;
-    } catch (err: any) {
-      console.error(err);
-      alert("Müşteri kaydedilirken hata oluştu: " + (err?.message || err));
-      return false;
     }
+
+    // ÇEVRİMDİŞİ OPTİMİSTİK KAYIT
+    addToOfflineQueue("SAVE_MUSTERI", m);
+    setOfflineQueueCount(getOfflineQueue().length);
+
+    const nextMusteriler = isNew
+      ? [musteriObj, ...musteriler]
+      : musteriler.map(item => item.id === m.id ? musteriObj : item);
+
+    setMusteriler(nextMusteriler);
+    saveToCache(nextMusteriler, parcalar, bakimlar);
+
+    if (isNew) handleStartNewBakimFromCustomer(targetId);
+    alert("⚡ Çevrimdışı Mod: Müşteri cihazınıza kaydedildi. İnternet bağlandığında otomatik senkronize edilecek.");
+    return true;
   };
 
   const handleDeleteMusteri = async (id: number) => {
-    try {
-      const updated = await deleteMusteri(id);
-      setMusteriler(updated);
-      setBakimlar(prev => prev.filter(b => b.musteri_id !== id));
-      if (selectedMusteriId === id) setSelectedMusteriId(null);
-    } catch (err: any) {
-      console.error(err);
-      alert("Müşteri silinirken hata oluştu: " + (err?.message || err));
+    if (isOnline) {
+      try {
+        const updated = await deleteMusteri(id);
+        setMusteriler(updated);
+        const nextBakimlar = bakimlar.filter(b => b.musteri_id !== id);
+        setBakimlar(nextBakimlar);
+        saveToCache(updated, parcalar, nextBakimlar);
+        if (selectedMusteriId === id) setSelectedMusteriId(null);
+        return;
+      } catch (err) {
+        console.warn("Çevrimiçi silme başarısız, kuyruğa alınıyor:", err);
+      }
     }
+
+    // ÇEVRİMDİŞİ OPTİMİSTİK SILME
+    addToOfflineQueue("DELETE_MUSTERI", { id });
+    setOfflineQueueCount(getOfflineQueue().length);
+
+    const nextMusteriler = musteriler.filter(m => m.id !== id);
+    const nextBakimlar = bakimlar.filter(b => b.musteri_id !== id);
+    setMusteriler(nextMusteriler);
+    setBakimlar(nextBakimlar);
+    saveToCache(nextMusteriler, parcalar, nextBakimlar);
+    if (selectedMusteriId === id) setSelectedMusteriId(null);
   };
 
   const handleAddOrEditParca = async (p: Omit<Parca, "id"> & { id?: number }) => {
-    try {
-      setParcalar(await saveParca(p));
-    } catch (err: any) {
-      console.error(err);
-      alert("Parça kaydedilirken hata oluştu: " + (err?.message || err));
+    if (isOnline) {
+      try {
+        const updated = await saveParca(p);
+        setParcalar(updated);
+        saveToCache(musteriler, updated, bakimlar);
+        return;
+      } catch (err) {
+        console.warn("Çevrimiçi parça kaydı başarısız, kuyruğa alınıyor:", err);
+      }
     }
+
+    // ÇEVRİMDİŞİ OPTİMİSTİK KAYIT
+    addToOfflineQueue("SAVE_PARCA", p);
+    setOfflineQueueCount(getOfflineQueue().length);
+
+    const targetId = p.id || Date.now();
+    const parcaObj: Parca = { id: targetId, ad: p.ad, fiyat: p.fiyat, stok: p.stok || 0 };
+    const nextParcalar = p.id
+      ? parcalar.map(item => item.id === p.id ? parcaObj : item)
+      : [...parcalar, parcaObj];
+
+    setParcalar(nextParcalar);
+    saveToCache(musteriler, nextParcalar, bakimlar);
   };
 
   const handleDeleteParca = async (id: number) => {
-    try {
-      setParcalar(await deleteParca(id));
-    } catch (err: any) {
-      console.error(err);
-      alert("Parça silinirken hata oluştu: " + (err?.message || err));
+    if (isOnline) {
+      try {
+        const updated = await deleteParca(id);
+        setParcalar(updated);
+        saveToCache(musteriler, updated, bakimlar);
+        return;
+      } catch (err) {
+        console.warn("Çevrimiçi parça silme başarısız, kuyruğa alınıyor:", err);
+      }
     }
+
+    // ÇEVRİMDİŞİ OPTİMİSTİK SILME
+    addToOfflineQueue("DELETE_PARCA", { id });
+    setOfflineQueueCount(getOfflineQueue().length);
+
+    const nextParcalar = parcalar.filter(p => p.id !== id);
+    setParcalar(nextParcalar);
+    saveToCache(musteriler, nextParcalar, bakimlar);
   };
 
   const handleSaveBakim = async (b: Omit<Bakim, "id">) => {
-    try {
-      const bakimItems = JSON.parse(b.parcalar || "[]");
+    const bakimItems = JSON.parse(b.parcalar || "[]");
 
-      if (Array.isArray(bakimItems) && bakimItems.length > 0) {
-        try {
-          await decreaseStockForBakim(bakimItems);
-          setStokKalemleri(await getStok());
-        } catch (stokErr: any) {
-          if (stokErr instanceof StokYetersizError) {
-            alert(
-              "❌ Bakım kaydedilemedi! Stok yetersiz:\n\n" +
-              stokErr.hatalar.join("\n")
-            );
-            return;
-          }
-          console.error("Stok düşümü hatası:", stokErr);
+    if (Array.isArray(bakimItems) && bakimItems.length > 0) {
+      try {
+        await decreaseStockForBakim(bakimItems);
+        setStokKalemleri(await getStok());
+      } catch (stokErr: any) {
+        if (stokErr instanceof StokYetersizError) {
+          alert(
+            "❌ Bakım kaydedilemedi! Stok yetersiz:\n\n" +
+            stokErr.hatalar.join("\n")
+          );
+          return;
         }
       }
-
-      const yeniBakimlar = await saveBakim(b);
-      setBakimlar(yeniBakimlar);
-      setPreSelectedMusteriId(undefined);
-    } catch (err: any) {
-      console.error(err);
-      alert("Bakım kaydı oluşturulurken hata oluştu: " + (err?.message || err));
     }
+
+    if (isOnline) {
+      try {
+        const yeniBakimlar = await saveBakim(b);
+        setBakimlar(yeniBakimlar);
+        saveToCache(musteriler, parcalar, yeniBakimlar);
+        setPreSelectedMusteriId(undefined);
+        return;
+      } catch (err) {
+        console.warn("Çevrimiçi bakım kaydı başarısız, kuyruğa alınıyor:", err);
+      }
+    }
+
+    // ÇEVRİMDİŞİ OPTİMİSTİK KAYIT
+    addToOfflineQueue("SAVE_BAKIM", b);
+    setOfflineQueueCount(getOfflineQueue().length);
+
+    const localBakim: Bakim = { ...b, id: Date.now() };
+    const nextBakimlar = [localBakim, ...bakimlar];
+    setBakimlar(nextBakimlar);
+    saveToCache(musteriler, parcalar, nextBakimlar);
+    setPreSelectedMusteriId(undefined);
+    alert("⚡ Çevrimdışı Mod: Bakım kaydı cihazınıza saklandı. İnternet bağlandığında otomatik yüklenecek.");
   };
 
   const handleIncreaseStock = async (id: number, quantity: number) => {
@@ -302,37 +411,71 @@ export default function App() {
   };
 
   const handleDeleteBakim = async (id: number) => {
-    try {
-      setBakimlar(await deleteBakim(id));
-    } catch (err: any) {
-      console.error(err);
-      alert("Bakım kaydı silinirken hata oluştu: " + (err?.message || err));
+    if (isOnline) {
+      try {
+        const updated = await deleteBakim(id);
+        setBakimlar(updated);
+        saveToCache(musteriler, parcalar, updated);
+        return;
+      } catch (err) {
+        console.warn("Çevrimiçi silme başarısız, kuyruğa alınıyor:", err);
+      }
     }
+
+    // ÇEVRİMDİŞİ OPTİMİSTİK SILME
+    addToOfflineQueue("DELETE_BAKIM", { id });
+    setOfflineQueueCount(getOfflineQueue().length);
+
+    const nextBakimlar = bakimlar.filter(b => b.id !== id);
+    setBakimlar(nextBakimlar);
+    saveToCache(musteriler, parcalar, nextBakimlar);
   };
 
   const handleUpdateOdemeDurumu = async (id: number, odendi: number) => {
-    try {
-      setBakimlar(await updateBakimOdemeDurumu(id, odendi));
-    } catch (err: any) {
-      console.error(err);
-      alert("Ödeme durumu güncellenirken hata oluştu: " + (err?.message || err));
+    if (isOnline) {
+      try {
+        const updated = await updateBakimOdemeDurumu(id, odendi);
+        setBakimlar(updated);
+        saveToCache(musteriler, parcalar, updated);
+        return;
+      } catch (err) {
+        console.warn("Ödeme durumu güncelleme başarısız, kuyruğa alınıyor:", err);
+      }
     }
+
+    // ÇEVRİMDİŞİ OPTİMİSTİK GÜNCELLEME
+    addToOfflineQueue("UPDATE_BAKIM", { id, updates: { odendi } });
+    setOfflineQueueCount(getOfflineQueue().length);
+
+    const nextBakimlar = bakimlar.map(b => b.id === id ? { ...b, odendi } : b);
+    setBakimlar(nextBakimlar);
+    saveToCache(musteriler, parcalar, nextBakimlar);
   };
 
   const handleUpdateBakim = async (
     id: number,
     updates: { toplam?: number; indirim?: number; not?: string; odendi?: number }
   ) => {
-    try {
-      const yeni = await updateBakim(id, updates);
-      setBakimlar(yeni);
-      // Müşteri listesini de sıralama için tazele (getMusteriler zaten import edildi)
-      const guncelMusteriler = await getMusteriler();
-      if (Array.isArray(guncelMusteriler)) setMusteriler(guncelMusteriler);
-    } catch (err: any) {
-      console.error(err);
-      alert("Bakım kaydı güncellenirken hata oluştu: " + (err?.message || err));
+    if (isOnline) {
+      try {
+        const yeni = await updateBakim(id, updates);
+        setBakimlar(yeni);
+        saveToCache(musteriler, parcalar, yeni);
+        const guncelMusteriler = await getMusteriler();
+        if (Array.isArray(guncelMusteriler)) setMusteriler(guncelMusteriler);
+        return;
+      } catch (err) {
+        console.warn("Çevrimiçi güncelleme başarısız, kuyruğa alınıyor:", err);
+      }
     }
+
+    // ÇEVRİMDİŞİ OPTİMİSTİK DÜZENLEME
+    addToOfflineQueue("UPDATE_BAKIM", { id, updates });
+    setOfflineQueueCount(getOfflineQueue().length);
+
+    const nextBakimlar = bakimlar.map(b => b.id === id ? { ...b, ...updates } : b);
+    setBakimlar(nextBakimlar);
+    saveToCache(musteriler, parcalar, nextBakimlar);
   };
 
   const handleImportBackup = async (data: { musteriler: Musteri[]; parcalar: Parca[]; bakimlar: Bakim[] }) => {
@@ -348,15 +491,16 @@ export default function App() {
   const getBackupPayload = () => ({ musteriler, parcalar, bakimlar });
 
   const sortedParcalar = React.useMemo(() => {
-    const usageCount: { [key: number]: number } = {};
-    parcalar.forEach(p => { usageCount[p.id] = 0; });
-    bakimlar.forEach(b => {
+    const usageCount: { [id: number]: number } = {};
+    bakimlar.forEach((b) => {
       try {
-        const list = JSON.parse(b.parcalar);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (Array.isArray(list)) list.forEach((item: any) => {
-          usageCount[item.id] = (usageCount[item.id] || 0) + (item.adet || 1);
-        });
+        const list = typeof b.parcalar === "string" ? JSON.parse(b.parcalar) : b.parcalar;
+        if (Array.isArray(list)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          list.forEach((item: any) => {
+            if (item.id) usageCount[item.id] = (usageCount[item.id] || 0) + Number(item.adet || 1);
+          });
+        }
       } catch { /* ignore */ }
     });
     return [...parcalar].sort((a, b) => (usageCount[b.id] || 0) - (usageCount[a.id] || 0));
@@ -464,9 +608,40 @@ export default function App() {
       {/* Mobil üst başlık */}
       <header className="bg-slate-900 text-white px-4 pt-safe flex items-center justify-between shrink-0 border-b border-slate-800"
         style={{ paddingTop: "env(safe-area-inset-top, 12px)", minHeight: "56px" }}>
-        <div className="flex items-center gap-4 py-3">
+        <div className="flex items-center gap-3 py-3">
           <img src={appLogo} alt="TekApp Logo" className="h-9 w-9 rounded-xl object-cover shrink-0 shadow-xs border border-slate-700/60" />
           <span className="font-extrabold text-base tracking-tight text-white pl-1">{getScreenTitle()}</span>
+        </div>
+
+        {/* Network & Offline Sync Status Indicator Badge */}
+        <div className="flex items-center gap-2">
+          {!isOnline && (
+            <div className="flex items-center gap-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full text-[11px] font-semibold animate-pulse">
+              <WifiOff className="h-3.5 w-3.5" />
+              <span>Çevrimdışı Mod {offlineQueueCount > 0 && `(${offlineQueueCount})`}</span>
+            </div>
+          )}
+          {isOnline && syncing && (
+            <div className="flex items-center gap-1.5 bg-sky-500/20 text-sky-300 border border-sky-500/40 px-2.5 py-1 rounded-full text-[11px] font-semibold">
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              <span>Senkronize Ediliyor...</span>
+            </div>
+          )}
+          {isOnline && !syncing && offlineQueueCount > 0 && (
+            <button
+              onClick={() => {
+                setSyncing(true);
+                processOfflineQueue(() => loadAllData(true)).finally(() => {
+                  setOfflineQueueCount(getOfflineQueue().length);
+                  setSyncing(false);
+                });
+              }}
+              className="flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-full text-[11px] font-semibold hover:bg-emerald-500/30 transition cursor-pointer"
+            >
+              <Wifi className="h-3.5 w-3.5 text-emerald-400" />
+              <span>{offlineQueueCount} Bekleyen Senkronize Et</span>
+            </button>
+          )}
         </div>
       </header>
 
