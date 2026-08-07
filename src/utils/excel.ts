@@ -3,13 +3,13 @@ import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { Musteri, Parca, Bakim } from "../types";
-import { getTahsilatlar } from "./cari";
+import { getTahsilatlar, getMusteriCariOzet } from "./cari";
 import { formatDateDDMMYYYY } from "./date";
 
 /**
- * Uygulamanın tüm verilerini (Müşteriler, Bakım Kayıtları, Stok/Parçalar, Tahsilatlar)
- * çok sekmeli (multi-sheet) bir Excel (.xlsx) dosyası olarak dışa aktarır.
- * Mobil cihazlarda (Capacitor Android/iOS) yerel dosya sistemine yazarak Paylaş/Kaydet penceresini açar.
+ * Uygulamanın tüm verilerini (Müşteri Alacakları, Müşteriler, Bakım Kayıtları, Stok/Parçalar, Tahsilatlar)
+ * 5 sekmeli (multi-sheet) bir Excel (.xlsx) dosyası olarak dışa aktarır.
+ * "Müşteri Alacakları" ilk sayfa (Sheet 1) olarak eklenir.
  */
 export async function exportToExcel(
   musteriler: Musteri[] = [],
@@ -20,7 +20,25 @@ export async function exportToExcel(
   const musteriMap = new Map<number, Musteri>();
   musteriler.forEach((m) => musteriMap.set(m.id, m));
 
-  // ── Sayfa 1: Müşteriler ──────────────────────────────────────
+  const tahsilatlar = getTahsilatlar();
+
+  // ── Sayfa 1: Müşteri Alacakları & Cari Bakiyeler (EN ÖNEMLİ SEKME) ────
+  const alacaklarData = musteriler.map((m) => {
+    const ozet = getMusteriCariOzet(m.id, bakimlar, tahsilatlar);
+    return {
+      "Müşteri ID": m.id,
+      "Müşteri Adı": m.ad,
+      "Telefon": m.telefon || "-",
+      "Adres": m.adres || "-",
+      "Toplam Hizmet/Satış (₺)": ozet.toplamAlacak || 0,
+      "Alınan Toplam Ödeme (₺)": ozet.tahsilEdilen || 0,
+      "Kalan Borç Bakiyesi (₺)": ozet.kalanBakiye || 0,
+      "Bakiye Durumu": ozet.kalanBakiye > 0 ? "🔴 Borçlu" : "🟢 Borcu Yok",
+      "Son İşlem Tarihi": m.last_activity_at ? formatDateDDMMYYYY(m.last_activity_at) : "-"
+    };
+  });
+
+  // ── Sayfa 2: Müşteriler (Tüm Liste) ──────────────────────────────────
   const musterilerData = musteriler.map((m) => ({
     "Müşteri ID": m.id,
     "Ad Soyad": m.ad,
@@ -31,7 +49,7 @@ export async function exportToExcel(
     "Kayıt Tarihi": m.created_at ? formatDateDDMMYYYY(m.created_at) : "-"
   }));
 
-  // ── Sayfa 2: Bakım Kayıtları ─────────────────────────────────
+  // ── Sayfa 3: Bakım Kayıtları ─────────────────────────────────
   const bakimlarData = bakimlar.map((b) => {
     const m = musteriMap.get(b.musteri_id);
 
@@ -62,7 +80,7 @@ export async function exportToExcel(
     };
   });
 
-  // ── Sayfa 3: Stok ve Parçalar ────────────────────────────────
+  // ── Sayfa 4: Stok ve Parçalar ────────────────────────────────
   const parcalarData = parcalar.map((p) => ({
     "Parça ID": p.id,
     "Parça Adı": p.ad,
@@ -70,8 +88,7 @@ export async function exportToExcel(
     "Mevcut Stok Adedi": p.stok ?? 0
   }));
 
-  // ── Sayfa 4: Tahsilatlar & Ödemeler ──────────────────────────
-  const tahsilatlar = getTahsilatlar();
+  // ── Sayfa 5: Tahsilatlar & Ödemeler ──────────────────────────
   const tahsilatData = tahsilatlar.map((t) => {
     const m = musteriMap.get(t.musteri_id);
     return {
@@ -86,6 +103,7 @@ export async function exportToExcel(
   // ── Workbook (Çalışma Kitabı) Oluşturma ──────────────────────
   const workbook = XLSX.utils.book_new();
 
+  const sheetAlacaklar = XLSX.utils.json_to_sheet(alacaklarData);
   const sheet1 = XLSX.utils.json_to_sheet(musterilerData);
   const sheet2 = XLSX.utils.json_to_sheet(bakimlarData);
   const sheet3 = XLSX.utils.json_to_sheet(parcalarData);
@@ -105,11 +123,14 @@ export async function exportToExcel(
     });
   };
 
+  sheetAlacaklar["!cols"] = autoWidth(alacaklarData);
   sheet1["!cols"] = autoWidth(musterilerData);
   sheet2["!cols"] = autoWidth(bakimlarData);
   sheet3["!cols"] = autoWidth(parcalarData);
   sheet4["!cols"] = autoWidth(tahsilatData);
 
+  // 1. Sekme olarak Müşteri Alacakları eklenir!
+  XLSX.utils.book_append_sheet(workbook, sheetAlacaklar, "Müşteri Alacakları");
   XLSX.utils.book_append_sheet(workbook, sheet1, "Müşteriler");
   XLSX.utils.book_append_sheet(workbook, sheet2, "Bakım Kayıtları");
   XLSX.utils.book_append_sheet(workbook, sheet3, "Stok ve Parçalar");
