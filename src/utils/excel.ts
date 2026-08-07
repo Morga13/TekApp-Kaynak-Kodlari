@@ -1,4 +1,7 @@
 import * as XLSX from "xlsx";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 import { Musteri, Parca, Bakim } from "../types";
 import { getTahsilatlar } from "./cari";
 import { formatDateDDMMYYYY } from "./date";
@@ -6,12 +9,13 @@ import { formatDateDDMMYYYY } from "./date";
 /**
  * Uygulamanın tüm verilerini (Müşteriler, Bakım Kayıtları, Stok/Parçalar, Tahsilatlar)
  * çok sekmeli (multi-sheet) bir Excel (.xlsx) dosyası olarak dışa aktarır.
+ * Mobil cihazlarda (Capacitor Android/iOS) yerel dosya sistemine yazarak Paylaş/Kaydet penceresini açar.
  */
-export function exportToExcel(
+export async function exportToExcel(
   musteriler: Musteri[] = [],
   bakimlar: Bakim[] = [],
   parcalar: Parca[] = []
-) {
+): Promise<void> {
   // Müşteri Haritası (Hızlı Müşteri Adı Erişimi İçin)
   const musteriMap = new Map<number, Musteri>();
   musteriler.forEach((m) => musteriMap.set(m.id, m));
@@ -111,9 +115,31 @@ export function exportToExcel(
   XLSX.utils.book_append_sheet(workbook, sheet3, "Stok ve Parçalar");
   XLSX.utils.book_append_sheet(workbook, sheet4, "Tahsilatlar");
 
-  // ── Excel Dosyasını İndir ────────────────────────────────────
   const today = new Date().toISOString().slice(0, 10);
   const fileName = `TekApp_Backup_${today}.xlsx`;
 
+  // ── MOBİL (ANDROID / IOS) NATIVE İÇİN İNDİRME / PAYLAŞMA ───────
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const base64Data = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Cache,
+      });
+
+      await Share.share({
+        title: "TekApp Excel Yedeği",
+        text: `${fileName} Excel raporu oluşturuldu.`,
+        url: savedFile.uri,
+        dialogTitle: "Excel Dosyasını Kaydet / Paylaş",
+      });
+      return;
+    } catch (err: any) {
+      console.warn("Native Filesystem/Share hatası, browser fallback deneniyor:", err);
+    }
+  }
+
+  // ── WEB TARAYICI İÇİN İNDİRME ────────────────────────────────
   XLSX.writeFile(workbook, fileName);
 }
