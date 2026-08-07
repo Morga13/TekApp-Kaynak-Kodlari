@@ -19,9 +19,12 @@ export const isSupabaseConfigured = () =>
 // ─────────────────────────────────────────
 
 export async function getMusteriler(): Promise<Musteri[]> {
+  // Önce last_activity_at'e göre sırala (en son işlem en üstte)
+  // Eski kayıtlarda last_activity_at null olabilir — onlar id'ye göre geri düşer
   const { data, error } = await supabase
     .from("musteriler")
     .select("*")
+    .order("last_activity_at", { ascending: false, nullsFirst: false })
     .order("id", { ascending: false });
   if (error) throw error;
   return (data || []).map(rowToMusteri);
@@ -38,6 +41,7 @@ export async function saveMusteri(
         telefon: musteri.telefon,
         adres: musteri.adres,
         not: musteri.not,
+        last_activity_at: new Date().toISOString(), // Düzenleme de aktivite sayılır
       })
       .eq("id", musteri.id);
     if (error) throw error;
@@ -47,6 +51,7 @@ export async function saveMusteri(
       telefon: musteri.telefon,
       adres: musteri.adres,
       not: musteri.not,
+      last_activity_at: new Date().toISOString(), // Yeni müşteri: kayıt zamanı
     });
     if (error) throw error;
   }
@@ -127,8 +132,49 @@ export async function saveBakim(bakim: Omit<Bakim, "id">): Promise<Bakim[]> {
     toplam: bakim.toplam,
     not: bakim.not,
     odendi: bakim.odendi,
+    indirim: bakim.indirim ?? 0,
   });
   if (error) throw error;
+
+  // Müşterinin last_activity_at'ini güncelle (dinamik sıralama için)
+  await supabase
+    .from("musteriler")
+    .update({ last_activity_at: new Date().toISOString() })
+    .eq("id", bakim.musteri_id);
+
+  return getBakimlar();
+}
+
+/**
+ * Mevcut bir bakım kaydının toplam tutarını ve/veya indirimini günceller.
+ * Müşterinin last_activity_at'ini de günceller.
+ */
+export async function updateBakim(
+  id: number,
+  updates: { toplam?: number; indirim?: number; not?: string; odendi?: number }
+): Promise<Bakim[]> {
+  // Önce mevcut bakım kaydını al (musteri_id için)
+  const { data: existing, error: fetchErr } = await supabase
+    .from("bakimlar")
+    .select("musteri_id")
+    .eq("id", id)
+    .single();
+  if (fetchErr) throw fetchErr;
+
+  const { error } = await supabase
+    .from("bakimlar")
+    .update(updates)
+    .eq("id", id);
+  if (error) throw error;
+
+  // Müşterinin last_activity_at'ini güncelle
+  if (existing?.musteri_id) {
+    await supabase
+      .from("musteriler")
+      .update({ last_activity_at: new Date().toISOString() })
+      .eq("id", existing.musteri_id);
+  }
+
   return getBakimlar();
 }
 
@@ -247,6 +293,7 @@ function rowToMusteri(row: any): Musteri {
     telefon: row.telefon || "",
     adres: row.adres || "",
     not: row.not || "",
+    last_activity_at: row.last_activity_at || undefined,
   };
 }
 
@@ -272,6 +319,7 @@ function rowToBakim(row: any): Bakim {
     toplam: Number(row.toplam),
     not: row.not || "",
     odendi: row.odendi || 0,
+    indirim: row.indirim != null ? Number(row.indirim) : undefined,
   };
 }
 // ─────────────────────────────────────────

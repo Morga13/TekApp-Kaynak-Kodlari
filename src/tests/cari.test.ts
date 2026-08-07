@@ -7,8 +7,8 @@ import {
 
 describe("QA & Cari Hesap Mantığı Testleri", () => {
   const sampleMusteriler: Musteri[] = [
-    { id: 1, ad: "Ahmet Yılmaz", telefon: "05551112233", adres: "İstanbul" },
-    { id: 2, ad: "Mehmet Demir", telefon: "05554445566", adres: "Ankara" }
+    { id: 1, ad: "Ahmet Yılmaz", telefon: "05551112233", adres: "İstanbul", not: "" },
+    { id: 2, ad: "Mehmet Demir", telefon: "05554445566", adres: "Ankara", not: "" }
   ];
 
   const sampleBakimlar: Bakim[] = [

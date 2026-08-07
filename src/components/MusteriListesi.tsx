@@ -11,28 +11,31 @@ import type { KonumPayload } from "./KonumKaydet";
 const KonumKaydet = React.lazy(() => import("./KonumKaydet"));
 
 // Harita bileşeni çökse bile uygulamanın geri kalanı etkilenmesin
-class MapErrorBoundary extends React.Component<
-  { children: React.ReactNode; onClose: () => void },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode; onClose: () => void }) {
-    super(props);
-    this.state = { hasError: false };
+// ─── Harita Error Boundary ─────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+class MapErrorBoundaryInner extends React.Component<any, any> {
+  constructor(p: { children: React.ReactNode; onClose: () => void }) {
+    super(p);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (this as any).state = { hasError: false };
   }
   static getDerivedStateFromError() { return { hasError: true }; }
   componentDidCatch(e: Error) { console.error("Harita hatası:", e); }
   render() {
-    if (this.state.hasError) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const self = this as any;
+    if (self.state.hasError) {
       return (
         <div className="fixed inset-0 z-[60] bg-white dark:bg-slate-950 flex flex-col items-center justify-center gap-4 p-6">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 text-center">Harita yüklenemedi. İnternet bağlantınızı kontrol edin.</p>
-          <button onClick={this.props.onClose} className="px-5 py-2.5 bg-sky-700 text-white rounded-xl text-sm font-bold">Kapat</button>
+          <button onClick={self.props.onClose} className="px-5 py-2.5 bg-sky-700 text-white rounded-xl text-sm font-bold">Kapat</button>
         </div>
       );
     }
-    return this.props.children;
+    return self.props.children;
   }
 }
+const MapErrorBoundary = MapErrorBoundaryInner as React.ComponentType<{ children: React.ReactNode; onClose: () => void }>;
 
 interface MusteriListesiProps {
   musteriler: Musteri[];
@@ -193,8 +196,16 @@ export default function MusteriListesi({
   const searchLower = search.toLocaleLowerCase("tr-TR");
 
   const filtered = React.useMemo(() => {
-    if (!searchLower.trim()) return musteriler;
-    return musteriler.filter(
+    // Önce son aktiviteye göre sırala (DB zaten sıralı gönderir,
+    // bu client-side güvence: cache'den yüklendiğinde de doğru sıra korunur)
+    const sorted = [...musteriler].sort((a, b) => {
+      const ta = a.last_activity_at ? new Date(a.last_activity_at).getTime() : 0;
+      const tb = b.last_activity_at ? new Date(b.last_activity_at).getTime() : 0;
+      return tb - ta; // DESC: en yeni en üstte
+    });
+
+    if (!searchLower.trim()) return sorted;
+    return sorted.filter(
       (m) =>
         m.ad.toLocaleLowerCase("tr-TR").includes(searchLower) ||
         (m.telefon && m.telefon.includes(searchLower))

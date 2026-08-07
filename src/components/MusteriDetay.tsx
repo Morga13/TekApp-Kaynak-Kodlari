@@ -16,6 +16,7 @@ interface MusteriDetayProps {
   onDeleteBakim: (id: number) => void;
   onNewBakimClick: (id: number) => void;
   onUpdateOdemeDurumu: (id: number, odendi: number) => void;
+  onUpdateBakim: (id: number, updates: { toplam?: number; indirim?: number; not?: string; odendi?: number }) => void;
 }
 
 const HATIRLATICI_KEY = "tekapp_bakim_hatirlatici";
@@ -69,7 +70,8 @@ export default function MusteriDetay({
   onBack,
   onDeleteBakim,
   onNewBakimClick,
-  onUpdateOdemeDurumu
+  onUpdateOdemeDurumu,
+  onUpdateBakim
 }: MusteriDetayProps) {
   const musteri = musteriler.find((m) => m.id === musteriId);
   const mBakimlar = React.useMemo(() => bakimlar
@@ -85,6 +87,13 @@ export default function MusteriDetay({
   const [odemeModalOpen, setOdemeModalOpen] = useState(false);
   const [tahsilatTutar, setTahsilatTutar] = useState("");
   const [tahsilatTarih, setTahsilatTarih] = useState(new Date().toISOString().split("T")[0]);
+
+  // Bakım Düzenleme Modal State
+  const [editBakimId, setEditBakimId] = useState<number | null>(null);
+  const [editToplam, setEditToplam] = useState("");
+  const [editIndirim, setEditIndirim] = useState("");
+  const [editNot, setEditNot] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   // --- Swipe-Back Gesture ---
   const touchStartX = useRef<number>(0);
@@ -200,6 +209,43 @@ export default function MusteriDetay({
 
   const cariOzet = React.useMemo(() => getMusteriCariOzet(musteriId, bakimlar), [musteriId, bakimlar]);
 
+  const handleOpenOdemeModal = () => {
+    // Mevcut borç bakiyesini otomatik doldur
+    const borc = cariOzet.kalanBakiye;
+    setTahsilatTutar(borc > 0 ? String(borc) : "");
+    setTahsilatTarih(new Date().toISOString().split("T")[0]);
+    setOdemeModalOpen(true);
+  };
+
+  const handleOpenEditBakim = (b: Bakim) => {
+    setEditBakimId(b.id);
+    setEditToplam(String(b.toplam));
+    setEditIndirim(b.indirim != null ? String(b.indirim) : "0");
+    setEditNot(b.not || "");
+    setEditSaving(false);
+  };
+
+  const handleSaveEditBakim = async () => {
+    if (!editBakimId) return;
+    const yeniToplam = parseFloat(editToplam.replace(",", "."));
+    if (isNaN(yeniToplam) || yeniToplam < 0) {
+      alert("Lütfen geçerli bir tutar girin.");
+      return;
+    }
+    const indirimVal = parseFloat(editIndirim.replace(",", ".")) || 0;
+    setEditSaving(true);
+    try {
+      await onUpdateBakim(editBakimId, {
+        toplam: yeniToplam,
+        indirim: indirimVal,
+        not: editNot.trim()
+      });
+      setEditBakimId(null);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   return (
     <div
       className="flex flex-col h-full bg-slate-50"
@@ -230,10 +276,14 @@ export default function MusteriDetay({
             </div>
 
             {musteri.telefon && (
-              <p className="text-xs text-slate-300 font-mono flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <a
+                href={`tel:${musteri.telefon.replace(/\s/g, "")}`}
+                className="text-xs text-sky-300 font-mono flex items-center gap-1.5 active:opacity-70 transition"
+              >
+                <Phone className="h-3.5 w-3.5 text-sky-400 shrink-0" />
                 {musteri.telefon}
-              </p>
+                <span className="text-[10px] text-sky-400/70 font-sans font-medium">ara</span>
+              </a>
             )}
 
             {musteri.adres && (
@@ -269,7 +319,18 @@ export default function MusteriDetay({
             <ChevronLeft className="h-4 w-4 text-white" />
           </button>
 
-          {/* Mesaj İkonu (WhatsApp) */}
+          {/* Ara Butonu */}
+          {musteri.telefon && (
+            <a
+              href={`tel:${musteri.telefon.replace(/\s/g, "")}`}
+              className="p-1.5 min-h-[36px] min-w-[36px] bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white rounded-lg transition flex items-center justify-center shrink-0 shadow-xs border border-sky-500 cursor-pointer"
+              title={`Ara: ${musteri.telefon}`}
+            >
+              <Phone className="h-3.5 w-3.5" />
+            </a>
+          )}
+
+          {/* WhatsApp Mesaj */}
           {musteri.telefon && (
             <button
               onClick={() => {
@@ -287,7 +348,7 @@ export default function MusteriDetay({
 
           {/* Ödeme Al Butonu */}
           <button
-            onClick={() => setOdemeModalOpen(true)}
+            onClick={handleOpenOdemeModal}
             className="px-2.5 py-1.5 min-h-[36px] bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1 shrink-0 shadow-xs border border-emerald-500 cursor-pointer"
             title="Ödeme Al"
           >
@@ -400,6 +461,7 @@ export default function MusteriDetay({
               const parcalar = parseParts(b.parcalar);
               return (
                 <div key={b.id} className="bg-white border border-slate-100 rounded-xl p-4 shadow-xs relative space-y-2.5">
+                  {/* Bakım Kartı Başlığı */}
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
                       <Calendar className="h-3.5 w-3.5 text-slate-400" />
@@ -407,6 +469,17 @@ export default function MusteriDetay({
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {/* Düzenle / İndirim Butonu */}
+                      <button
+                        onClick={() => handleOpenEditBakim(b)}
+                        className="p-1 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
+                        title="Fiyat / İndirim Düzenle"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
                       <button
                         onClick={() => {
                           if (confirm("Bu hizmet kaydını silmek istediğinize emin misiniz?")) {
@@ -442,11 +515,24 @@ export default function MusteriDetay({
                     </div>
                   )}
 
+                  {/* Fiyat / İndirim satırı */}
                   <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-right">
-                    <span className="text-xs font-bold text-slate-400 text-[10px]">İşlem Tutarı:</span>
-                    <span className="text-sm font-extrabold text-slate-800 font-mono">
-                      {b.toplam.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
-                    </span>
+                    <span className="text-xs font-bold text-slate-400 text-[10px">İşlem Tutarı:</span>
+                    <div className="text-right">
+                      {b.indirim != null && b.indirim > 0 && (
+                        <span className="text-[10px] text-rose-500 font-semibold line-through mr-1.5 font-mono">
+                          {(b.toplam + b.indirim).toLocaleString("tr-TR")} ₺
+                        </span>
+                      )}
+                      <span className="text-sm font-extrabold text-slate-800 font-mono">
+                        {b.toplam.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
+                      </span>
+                      {b.indirim != null && b.indirim > 0 && (
+                        <span className="block text-[10px] text-emerald-600 font-semibold">
+                          ✓ {b.indirim.toLocaleString("tr-TR")} ₺ indirim uygulandı
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -511,6 +597,102 @@ export default function MusteriDetay({
                   className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition"
                 >
                   Ödemeyi Kaydet
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✏️ BAKIM KAYDI DÜZENLEME MODALI */}
+      {editBakimId !== null && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 bg-sky-700 text-white flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-sm">✏️ Kayıt Düzenle</h3>
+                <p className="text-[11px] text-sky-200 mt-0.5">Fiyat ve indirim güncelleme</p>
+              </div>
+              <button onClick={() => setEditBakimId(null)} className="p-1.5 rounded-full text-sky-300 hover:text-white transition">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Net Tutar */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  İşlem Tutarı (₺) <span className="text-[10px] font-normal text-slate-400">— Net kaydedilecek tutar</span>
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Örn: 1500"
+                  value={editToplam}
+                  onChange={(e) => setEditToplam(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-base font-extrabold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                />
+              </div>
+
+              {/* İndirim */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  İndirim Tutarı (₺) <span className="text-[10px] font-normal text-slate-400">— Opsiyonel</span>
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Örn: 200"
+                  value={editIndirim}
+                  onChange={(e) => setEditIndirim(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                />
+                {editIndirim && Number(editIndirim) > 0 && !isNaN(Number(editToplam)) && (
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Orijinal fiyat: <span className="font-mono font-semibold text-slate-600">
+                      {(Number(editToplam) + Number(editIndirim)).toLocaleString("tr-TR")} ₺
+                    </span>
+                    {" → "}
+                    <span className="font-mono font-bold text-emerald-600">{Number(editToplam).toLocaleString("tr-TR")} ₺</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Not */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Açıklama / Not</label>
+                <textarea
+                  value={editNot}
+                  onChange={(e) => setEditNot(e.target.value)}
+                  rows={2}
+                  placeholder="İşlem notu..."
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 focus:ring-2 focus:ring-sky-500 focus:outline-none resize-none"
+                />
+              </div>
+
+              {/* Butonlar */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setEditBakimId(null)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleSaveEditBakim}
+                  disabled={editSaving}
+                  className="flex-1 py-2.5 bg-sky-700 hover:bg-sky-800 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5"
+                >
+                  {editSaving ? (
+                    <>
+                      <svg className="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                      </svg>
+                      Kaydediliyor...
+                    </>
+                  ) : "Kaydet"}
                 </button>
               </div>
             </div>

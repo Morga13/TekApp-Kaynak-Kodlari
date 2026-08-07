@@ -60,3 +60,30 @@ INSERT INTO parcalar (ad, fiyat) VALUES
   ('Radyatör Temizleme Kimyasalı', 300),
   ('Klima Gazı R410A (100gr)', 180)
 ON CONFLICT DO NOTHING;
+
+-- ─────────────────────────────────────────────────────────────────
+-- MİGRASYON: Mevcut tablolara yeni sütunlar ekleme
+-- Supabase SQL Editor'da SADECE BİR KEZ çalıştırın
+-- ─────────────────────────────────────────────────────────────────
+
+-- 1. Müşteri listesini "en son işlem" bazında sıralamak için alan
+ALTER TABLE musteriler
+  ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMPTZ;
+
+-- 2. Geçmiş bakım kayıtlarına indirim uygulamak için alan
+ALTER TABLE bakimlar
+  ADD COLUMN IF NOT EXISTS indirim NUMERIC(10, 2) DEFAULT 0;
+
+-- 3. Mevcut müşteriler için last_activity_at'i doldur:
+--    Her müşterinin en son bakımının created_at'ini kullanır;
+--    hiç bakımı olmayan müşteriler için müşteri created_at kullanılır.
+UPDATE musteriler m
+SET last_activity_at = COALESCE(
+  (SELECT MAX(b.created_at) FROM bakimlar b WHERE b.musteri_id = m.id),
+  m.created_at
+)
+WHERE last_activity_at IS NULL;
+
+-- 4. Sıralama performansı için index
+CREATE INDEX IF NOT EXISTS idx_musteriler_last_activity_at
+  ON musteriler (last_activity_at DESC NULLS LAST);

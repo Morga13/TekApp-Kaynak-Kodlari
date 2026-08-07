@@ -4,6 +4,7 @@ export interface Musteri {
   telefon: string;
   adres: string;
   not: string;
+  last_activity_at?: string; // ISO timestamp - en son işlem zamanı (müşteri listesi sıralama için)
 }
 
 export interface Parca {
@@ -56,6 +57,7 @@ export interface Bakim {
   not: string;
   odendi: number; // 1: Ödendi, 0: Ödenmedi
   is_cihaz_satisi?: boolean; // Cihaz Satışı olarak işaretlenmiş mi?
+  indirim?: number; // İndirim tutarı (TL) - sonradan düzenlenebilir
 }
 
 export interface DegisenParca {

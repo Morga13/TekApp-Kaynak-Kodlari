@@ -10,6 +10,7 @@ import {
   getBakimlar,
   saveBakim,
   deleteBakim,
+  updateBakim,
   updateBakimOdemeDurumu,
   importAllData,
   subscribeToChanges,
@@ -318,6 +319,22 @@ export default function App() {
     }
   };
 
+  const handleUpdateBakim = async (
+    id: number,
+    updates: { toplam?: number; indirim?: number; not?: string; odendi?: number }
+  ) => {
+    try {
+      const yeni = await updateBakim(id, updates);
+      setBakimlar(yeni);
+      // Müşteri listesini de sıralama için tazele (getMusteriler zaten import edildi)
+      const guncelMusteriler = await getMusteriler();
+      if (Array.isArray(guncelMusteriler)) setMusteriler(guncelMusteriler);
+    } catch (err: any) {
+      console.error(err);
+      alert("Bakım kaydı güncellenirken hata oluştu: " + (err?.message || err));
+    }
+  };
+
   const handleImportBackup = async (data: { musteriler: Musteri[]; parcalar: Parca[]; bakimlar: Bakim[] }) => {
     try {
       await importAllData(data);
@@ -395,6 +412,7 @@ export default function App() {
               onDeleteBakim={handleDeleteBakim}
               onNewBakimClick={handleStartNewBakimFromCustomer}
               onUpdateOdemeDurumu={handleUpdateOdemeDurumu}
+              onUpdateBakim={handleUpdateBakim}
             />
           )}
         </div>

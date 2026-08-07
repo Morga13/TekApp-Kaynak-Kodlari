@@ -22,7 +22,7 @@ interface KonumKaydetProps {
   initialData?: Partial<KonumPayload>;
 }
 
-type LocationStatus = "idle" | "loading" | "success" | "denied" | "error";
+type LocationStatus = "idle" | "last_known" | "refining" | "success" | "denied" | "error";
 
 // ─── Nominatim Reverse Geocoding ──────────────────────────────
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
@@ -59,6 +59,7 @@ export default function KonumKaydet({
   );
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [accuracyM, setAccuracyM] = useState<number | null>(null); // metre cinsinden hassasiyet
   const [autoAddress, setAutoAddress] = useState(initialData?.auto_address || "");
   const [addressNote, setAddressNote] = useState(initialData?.address_note || "");
   const [isFormExpanded, setIsFormExpanded] = useState(true);
@@ -83,12 +84,11 @@ export default function KonumKaydet({
     if (isMountedRef.current) setter(val);
   }, []);
 
-  // ─── Marker ekle/taşı (inline, ref kullanır) ─────────────
-  const placeMarker = useCallback(async (lat: number, lng: number) => {
+  // ─── Marker ekle/taşı ─────────────────────────────────────
+  const placeMarker = useCallback(async (lat: number, lng: number, runGeocode = true) => {
     const map = mapRef.current;
     if (!map) return;
 
-    // L'yi lazy import ile al — global scope'ta çağrılmıyor!
     const L = (await import("leaflet")).default;
 
     const icon = L.icon({
@@ -109,6 +109,7 @@ export default function KonumKaydet({
         const pos = marker.getLatLng();
         if (!isMountedRef.current) return;
         safeSet(setCoords)({ lat: pos.lat, lng: pos.lng });
+        safeSet(setAccuracyM)(null);
         safeSet(setReverseGeoLoading)(true);
         const addr = await reverseGeocode(pos.lat, pos.lng);
         safeSet(setAutoAddress)(addr);
@@ -119,70 +120,166 @@ export default function KonumKaydet({
 
     map.setView([lat, lng], 18, { animate: true });
 
-    // Adres güncelle
-    safeSet(setReverseGeoLoading)(true);
-    const addr = await reverseGeocode(lat, lng);
-    if (isMountedRef.current) {
-      setAutoAddress(addr);
-      setReverseGeoLoading(false);
+    if (runGeocode) {
+      safeSet(setReverseGeoLoading)(true);
+      const addr = await reverseGeocode(lat, lng);
+      if (isMountedRef.current) {
+        setAutoAddress(addr);
+        setReverseGeoLoading(false);
+      }
     }
   }, [safeSet]);
 
-  // ─── GPS Konumu Al ─────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // HYBRID KONUM ALMA — WhatsApp Yaklaşımı
+  //
+  // Faz 1: getLastKnownPosition() → anında haritayı snap et (bloklama yok)
+  // Faz 2: getCurrentPosition(highAccuracy:true, 10s) → pini rafine et
+  // Faz 3: Fallback → highAccuracy:false ile ağ tabanlı konum dene
+  // ─────────────────────────────────────────────────────────────
   const fetchLocation = useCallback(async () => {
-    safeSet(setLocationStatus)("loading");
+    safeSet(setLocationStatus)("idle");
     safeSet(setLocationError)(null);
-    try {
-      let latitude: number;
-      let longitude: number;
+    safeSet(setAccuracyM)(null);
 
-      if (Capacitor.isNativePlatform()) {
-        let perm = await Geolocation.checkPermissions();
-        if (perm.location !== "granted") {
-          perm = await Geolocation.requestPermissions({ permissions: ["location", "coarseLocation"] });
-        }
-        if (perm.location !== "granted" && perm.coarseLocation !== "granted") {
-          safeSet(setLocationStatus)("denied");
-          safeSet(setLocationError)("Konum izni verilmeli. Telefon Ayarları → İzinler → Konum → 'Tam Konum' iznini açınız.");
-          return;
-        }
-        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
-        latitude = pos.coords.latitude;
-        longitude = pos.coords.longitude;
-      } else {
-        if (!navigator.geolocation) {
-          safeSet(setLocationStatus)("error");
-          safeSet(setLocationError)("Tarayıcınız konum özelliğini desteklemiyor.");
-          return;
-        }
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
-        });
-        latitude = pos.coords.latitude;
-        longitude = pos.coords.longitude;
+    // ── Kapasite İzin Kontrolü (sadece native) ──────────────
+    if (Capacitor.isNativePlatform()) {
+      let perm = await Geolocation.checkPermissions();
+      if (perm.location !== "granted") {
+        perm = await Geolocation.requestPermissions({ permissions: ["location", "coarseLocation"] });
       }
-
-      if (!isMountedRef.current) return;
-      setCoords({ lat: latitude, lng: longitude });
-      setLocationStatus("success");
-      await placeMarker(latitude, longitude);
-    } catch (err: unknown) {
-      if (!isMountedRef.current) return;
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.toLowerCase().includes("denied") || msg.toLowerCase().includes("disabled")) {
-        setLocationStatus("denied");
-        setLocationError("Konum izni veya GPS kapalı. Ayarlardan 'Tam Konum' ve 'Yüksek Hassasiyet' ayarını açınız.");
-      } else if (msg.toLowerCase().includes("timeout")) {
-        setLocationStatus("error");
-        setLocationError("Konum alınamadı — GPS sinyali zayıf. Açık alanda tekrar deneyin.");
-      } else {
-        setLocationStatus("error");
-        setLocationError("Konum alınamadı. Lütfen GPS bağlantınızı kontrol edin.");
+      if (perm.location !== "granted" && perm.coarseLocation !== "granted") {
+        safeSet(setLocationStatus)("denied");
+        safeSet(setLocationError)(
+          "Konum izni verilmeli. Telefon Ayarları → İzinler → Konum → 'Tam Konum' iznini açınız."
+        );
+        return;
+      }
+    } else {
+      if (!navigator.geolocation) {
+        safeSet(setLocationStatus)("error");
+        safeSet(setLocationError)("Tarayıcınız konum özelliğini desteklemiyor.");
+        return;
       }
     }
+
+    // ── FAZ 1: Son Bilinen Konum (anlık snap) ───────────────
+    // @capacitor/geolocation v7'de getLastKnownPosition yok;
+    // maximumAge:30000 ile cache'lenmiş son konumu anında al (non-blocking)
+    try {
+      let lastLat: number | null = null;
+      let lastLng: number | null = null;
+
+      if (Capacitor.isNativePlatform()) {
+        // maximumAge:30000 → 30 saniyeye kadar eski cache kabul et, timeout:0 → anında döner
+        const lastPos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: false,
+          timeout: 3000,
+          maximumAge: 30000, // 30 saniye içindeyse cache'den al
+        });
+        if (lastPos?.coords) {
+          lastLat = lastPos.coords.latitude;
+          lastLng = lastPos.coords.longitude;
+        }
+      }
+      // Web'de lastKnownPosition yok — doğrudan Faz 2'ye geç
+
+      if (lastLat !== null && lastLng !== null && isMountedRef.current) {
+        // Haritayı hemen snap et — UI bloklanmadan görünür konum
+        setCoords({ lat: lastLat, lng: lastLng });
+        setLocationStatus("last_known");
+        // Geocode'u beklemeden marker'ı koy (runGeocode=false)
+        await placeMarker(lastLat, lastLng, false);
+      }
+    } catch {
+      // Cache'de konum yoksa sessizce devam et
+    }
+
+    // ── FAZ 2: Yüksek Hassasiyetli GPS + Wi-Fi + Cell Tower ─
+    safeSet(setLocationStatus)("refining");
+
+    const tryGetPosition = async (highAccuracy: boolean): Promise<{ lat: number; lng: number; accuracy: number }> => {
+      if (Capacitor.isNativePlatform()) {
+        const pos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: highAccuracy,
+          timeout: highAccuracy ? 10000 : 8000,
+          maximumAge: 0,
+        });
+        return {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy ?? 0,
+        };
+      } else {
+        // Web tarayıcı Geolocation API
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: highAccuracy,
+            timeout: highAccuracy ? 10000 : 8000,
+            maximumAge: 0,
+          });
+        });
+        return {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy ?? 0,
+        };
+      }
+    };
+
+    let finalCoords: { lat: number; lng: number; accuracy: number } | null = null;
+
+    try {
+      // Faz 2a: Yüksek hassasiyetli (GPS + Fused)
+      finalCoords = await tryGetPosition(true);
+    } catch (highAccErr) {
+      if (!isMountedRef.current) return;
+
+      const errMsg = highAccErr instanceof Error ? highAccErr.message : String(highAccErr);
+      const isDenied = errMsg.toLowerCase().includes("denied") || errMsg.toLowerCase().includes("disabled");
+
+      if (isDenied) {
+        // İzin reddedildiyse fallback'e geçmeden direkt hata ver
+        setLocationStatus("denied");
+        setLocationError("Konum izni veya GPS kapalı. Ayarlardan 'Tam Konum' iznini açınız.");
+        return;
+      }
+
+      // ── FAZ 3: Ağ Tabanlı Fallback (GPS sinyal yoksa) ───────
+      try {
+        finalCoords = await tryGetPosition(false);
+        // Fallback başarılı — kullanıcıya düşük hassasiyet uyarısı göster
+        if (isMountedRef.current) {
+          setLocationError(
+            `GPS sinyali zayıf — ağ konumu kullanılıyor (~${Math.round(finalCoords.accuracy)}m hassasiyet). ` +
+            "Daha doğru konum için açık alanda tekrar deneyin."
+          );
+        }
+      } catch {
+        if (!isMountedRef.current) return;
+        const isTimeout = errMsg.toLowerCase().includes("timeout");
+        setLocationStatus("error");
+        setLocationError(
+          isTimeout
+            ? "GPS sinyali zayıf — konum alınamadı. Dışarı çıkarak tekrar deneyin."
+            : "Konum alınamadı. GPS ve internet bağlantısını kontrol edin."
+        );
+        return;
+      }
+    }
+
+    if (!isMountedRef.current || !finalCoords) return;
+
+    // ── Başarılı: Pin rafine edildi ─────────────────────────
+    setCoords({ lat: finalCoords.lat, lng: finalCoords.lng });
+    setAccuracyM(finalCoords.accuracy);
+    setLocationStatus("success");
+    // Geocode da dahil marker yerleştir
+    await placeMarker(finalCoords.lat, finalCoords.lng, true);
+
   }, [placeMarker, safeSet]);
 
-  // ─── Leaflet Harita Başlat (lazy import ile güvenli) ──────
+  // ─── Leaflet Harita Başlat ─────────────────────────────────
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
@@ -217,6 +314,7 @@ export default function KonumKaydet({
         map.on("click", async (e: any) => {
           if (!isMountedRef.current) return;
           setCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
+          setAccuracyM(null);
           await placeMarker(e.latlng.lat, e.latlng.lng);
         });
 
@@ -278,7 +376,16 @@ export default function KonumKaydet({
     fetchLocation();
   }, [fetchLocation]);
 
-  // ─── RENDER ────────────────────────────────────────────────
+  // ─── Loading UI yardımcıları ────────────────────────────────
+  const isLoading = locationStatus === "last_known" || locationStatus === "refining";
+  const loadingLabel = locationStatus === "last_known"
+    ? "Son bilinen konum alındı, rafine ediliyor..."
+    : "Yüksek hassasiyetli GPS bekleniyor...";
+  const loadingSubLabel = locationStatus === "last_known"
+    ? "GPS + Wi-Fi + Hücre kulesi verisi birleştiriliyor"
+    : "GPS + Wi-Fi + Hücre kulesi verisi birleştiriliyor";
+
+  // ─── RENDER ─────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full w-full bg-slate-50 dark:bg-slate-950 overflow-hidden relative">
 
@@ -305,18 +412,35 @@ export default function KonumKaydet({
           style={{ touchAction: "manipulation" }}
         />
 
-        {/* GPS Yükleniyor */}
-        {locationStatus === "loading" && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs pointer-events-none">
-            <div className="bg-white dark:bg-slate-800 rounded-xl px-5 py-4 flex flex-col items-center gap-3 shadow-sm border border-slate-200 dark:border-slate-700">
-              <Loader2 className="h-8 w-8 text-sky-700 dark:text-sky-400 animate-spin" />
-              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">GPS konumu alınıyor...</p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500">Yüksek hassasiyetli konum bekleniyor</p>
+        {/* ── GPS Yükleniyor Overlay ──────────────────────── */}
+        {isLoading && (
+          <div className="absolute inset-0 z-10 flex items-end justify-center pb-8 pointer-events-none">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl px-5 py-4 flex items-center gap-3 shadow-lg border border-slate-200 dark:border-slate-700 mx-4 w-full max-w-xs">
+              {/* Sol: spinner veya checkmark */}
+              <div className="shrink-0">
+                {locationStatus === "last_known" ? (
+                  /* Son konum snap edildi — küçük sarı pulse */
+                  <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center relative">
+                    <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <span className="absolute inset-0 rounded-full animate-ping bg-amber-300/50" />
+                  </div>
+                ) : (
+                  /* Refining — mavi spinner */
+                  <div className="h-8 w-8 rounded-full bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center">
+                    <Loader2 className="h-4 w-4 text-sky-700 dark:text-sky-400 animate-spin" />
+                  </div>
+                )}
+              </div>
+              {/* Sağ: metin */}
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-tight">{loadingLabel}</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 leading-tight">{loadingSubLabel}</p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* İzin Hatası */}
+        {/* ── İzin / Hata Overlay (konum yokken) ─────────── */}
         {(locationStatus === "denied" || locationStatus === "error") && !coords && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-6">
             <div className="bg-white dark:bg-slate-800 rounded-xl px-5 py-5 flex flex-col items-center gap-4 shadow-sm border border-slate-200 dark:border-slate-700 max-w-xs w-full">
@@ -348,21 +472,34 @@ export default function KonumKaydet({
           </div>
         )}
 
-        {/* Konumuma Dön */}
-        {coords && locationStatus !== "loading" && (
+        {/* ── Konumuma Dön Butonu ──────────────────────────── */}
+        {coords && !isLoading && (
           <button
             onClick={handleRelocate}
             className="absolute top-3 right-3 z-10 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center text-sky-700 dark:text-sky-400 transition active:scale-95 hover:bg-sky-50 dark:hover:bg-slate-700"
-            title="Konumuma Dön"
+            title="Konumumu Güncelle"
           >
             <LocateFixed className="h-5 w-5" />
           </button>
         )}
 
-        {/* Koordinat Chip */}
+        {/* ── Koordinat + Hassasiyet Chip ──────────────────── */}
         {coords && (
-          <div className="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-[10px] font-mono tracking-tight">
-            {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
+          <div className="absolute top-3 left-3 z-10 flex flex-col gap-1">
+            <div className="bg-slate-900/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-[10px] font-mono tracking-tight">
+              {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
+            </div>
+            {accuracyM !== null && (
+              <div className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold backdrop-blur-sm ${
+                accuracyM <= 10
+                  ? "bg-emerald-600/90 text-white"
+                  : accuracyM <= 50
+                  ? "bg-sky-600/90 text-white"
+                  : "bg-amber-500/90 text-white"
+              }`}>
+                ±{Math.round(accuracyM)}m hassasiyet
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -417,7 +554,7 @@ export default function KonumKaydet({
               />
             </div>
 
-            {/* Uyarı (konum varken) */}
+            {/* Düşük Hassasiyet / Fallback Uyarısı */}
             {locationError && coords && (
               <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 font-medium bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800">
                 <AlertTriangle className="h-3 w-3 shrink-0" />
