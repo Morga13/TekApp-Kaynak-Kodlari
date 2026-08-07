@@ -40,6 +40,6 @@ describe("Excel Export Utility Tests", () => {
 
     const mockCall = vi.mocked(XLSX.writeFile).mock.calls[0];
     const fileName = mockCall[1];
-    expect(fileName).toMatch(/^TekApp_Backup_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(fileName).toMatch(/^TekApp_Bekleyen_Odemeler_\d{4}-\d{2}-\d{2}\.xlsx$/);
   });
 });
