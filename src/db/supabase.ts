@@ -19,41 +19,61 @@ export const isSupabaseConfigured = () =>
 // ─────────────────────────────────────────
 
 export async function getMusteriler(): Promise<Musteri[]> {
-  // Önce last_activity_at'e göre sırala (en son işlem en üstte)
-  // Eski kayıtlarda last_activity_at null olabilir — onlar id'ye göre geri düşer
-  const { data, error } = await supabase
+  // Önce last_activity_at'e göre sıralamayı dene
+  let { data, error } = await supabase
     .from("musteriler")
     .select("*")
     .order("last_activity_at", { ascending: false, nullsFirst: false })
     .order("id", { ascending: false });
-  if (error) throw error;
+
+  // Eğer last_activity_at sütunu henüz veritabanında yoksa, id'ye göre sırala
+  if (error) {
+    const fallback = await supabase
+      .from("musteriler")
+      .select("*")
+      .order("id", { ascending: false });
+    if (fallback.error) throw fallback.error;
+    data = fallback.data;
+  }
   return (data || []).map(rowToMusteri);
 }
 
 export async function saveMusteri(
   musteri: Omit<Musteri, "id"> & { id?: number }
 ): Promise<Musteri[]> {
+  const payload: any = {
+    ad: musteri.ad,
+    telefon: musteri.telefon,
+    adres: musteri.adres,
+    not: musteri.not,
+    last_activity_at: new Date().toISOString(),
+  };
+
   if (musteri.id) {
-    const { error } = await supabase
+    let { error } = await supabase
       .from("musteriler")
-      .update({
-        ad: musteri.ad,
-        telefon: musteri.telefon,
-        adres: musteri.adres,
-        not: musteri.not,
-        last_activity_at: new Date().toISOString(), // Düzenleme de aktivite sayılır
-      })
+      .update(payload)
       .eq("id", musteri.id);
-    if (error) throw error;
+    
+    // Eğer last_activity_at sütunu yoksa, onu çıkarıp tekrar dene
+    if (error && (error.code === "42703" || error.message?.includes("last_activity_at"))) {
+      delete payload.last_activity_at;
+      const res = await supabase.from("musteriler").update(payload).eq("id", musteri.id);
+      if (res.error) throw res.error;
+    } else if (error) {
+      throw error;
+    }
   } else {
-    const { error } = await supabase.from("musteriler").insert({
-      ad: musteri.ad,
-      telefon: musteri.telefon,
-      adres: musteri.adres,
-      not: musteri.not,
-      last_activity_at: new Date().toISOString(), // Yeni müşteri: kayıt zamanı
-    });
-    if (error) throw error;
+    let { error } = await supabase.from("musteriler").insert(payload);
+    
+    // Eğer last_activity_at sütunu yoksa, onu çıkarıp tekrar dene
+    if (error && (error.code === "42703" || error.message?.includes("last_activity_at"))) {
+      delete payload.last_activity_at;
+      const res = await supabase.from("musteriler").insert(payload);
+      if (res.error) throw res.error;
+    } else if (error) {
+      throw error;
+    }
   }
   return getMusteriler();
 }
@@ -115,7 +135,6 @@ export async function getBakimlar(): Promise<Bakim[]> {
 }
 
 export async function saveBakim(bakim: Omit<Bakim, "id">): Promise<Bakim[]> {
-  // Güvenli JSON parse: parcalar zaten obje ise tekrar parse etme
   let parcalarData: unknown;
   try {
     parcalarData = typeof bakim.parcalar === "string"
@@ -125,7 +144,7 @@ export async function saveBakim(bakim: Omit<Bakim, "id">): Promise<Bakim[]> {
     parcalarData = [];
   }
 
-  const { error } = await supabase.from("bakimlar").insert({
+  const insertPayload: any = {
     musteri_id: bakim.musteri_id,
     tarih: bakim.tarih,
     parcalar: parcalarData,
@@ -133,14 +152,26 @@ export async function saveBakim(bakim: Omit<Bakim, "id">): Promise<Bakim[]> {
     not: bakim.not,
     odendi: bakim.odendi,
     indirim: bakim.indirim ?? 0,
-  });
-  if (error) throw error;
+  };
 
-  // Müşterinin last_activity_at'ini güncelle (dinamik sıralama için)
-  await supabase
-    .from("musteriler")
-    .update({ last_activity_at: new Date().toISOString() })
-    .eq("id", bakim.musteri_id);
+  let { error } = await supabase.from("bakimlar").insert(insertPayload);
+  
+  // Eğer indirim sütunu yoksa, indirim'i silip tekrar dene
+  if (error && (error.code === "42703" || error.message?.includes("indirim"))) {
+    delete insertPayload.indirim;
+    const res = await supabase.from("bakimlar").insert(insertPayload);
+    if (res.error) throw res.error;
+  } else if (error) {
+    throw error;
+  }
+
+  // Müşterinin last_activity_at'ini güncelle (hata verirse yok say)
+  try {
+    await supabase
+      .from("musteriler")
+      .update({ last_activity_at: new Date().toISOString() })
+      .eq("id", bakim.musteri_id);
+  } catch { /* ignore if column missing */ }
 
   return getBakimlar();
 }
@@ -154,29 +185,44 @@ export async function updateBakim(
   updates: { toplam?: number; indirim?: number; not?: string; odendi?: number }
 ): Promise<Bakim[]> {
   // Önce mevcut bakım kaydını al (musteri_id için)
-  const { data: existing, error: fetchErr } = await supabase
-    .from("bakimlar")
-    .select("musteri_id")
-    .eq("id", id)
-    .single();
-  if (fetchErr) throw fetchErr;
+  let musteriId: number | null = null;
+  try {
+    const { data: existing } = await supabase
+      .from("bakimlar")
+      .select("musteri_id")
+      .eq("id", id)
+      .single();
+    if (existing) musteriId = existing.musteri_id;
+  } catch { /* ignore */ }
 
-  const { error } = await supabase
+  const updateData: any = { ...updates };
+  let { error } = await supabase
     .from("bakimlar")
-    .update(updates)
+    .update(updateData)
     .eq("id", id);
-  if (error) throw error;
 
-  // Müşterinin last_activity_at'ini güncelle
-  if (existing?.musteri_id) {
-    await supabase
-      .from("musteriler")
-      .update({ last_activity_at: new Date().toISOString() })
-      .eq("id", existing.musteri_id);
+  // Eğer indirim sütunu yoksa, indirim'i çıkarıp tekrar dene
+  if (error && (error.code === "42703" || error.message?.includes("indirim"))) {
+    delete updateData.indirim;
+    const res = await supabase.from("bakimlar").update(updateData).eq("id", id);
+    if (res.error) throw res.error;
+  } else if (error) {
+    throw error;
+  }
+
+  // Müşterinin last_activity_at'ini güncelle (hata verirse yok say)
+  if (musteriId) {
+    try {
+      await supabase
+        .from("musteriler")
+        .update({ last_activity_at: new Date().toISOString() })
+        .eq("id", musteriId);
+    } catch { /* ignore */ }
   }
 
   return getBakimlar();
 }
+
 
 export async function deleteBakim(id: number): Promise<Bakim[]> {
   const { error } = await supabase.from("bakimlar").delete().eq("id", id);

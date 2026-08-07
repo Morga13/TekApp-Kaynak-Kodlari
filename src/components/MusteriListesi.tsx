@@ -196,12 +196,29 @@ export default function MusteriListesi({
   const searchLower = search.toLocaleLowerCase("tr-TR");
 
   const filtered = React.useMemo(() => {
-    // Önce son aktiviteye göre sırala (DB zaten sıralı gönderir,
-    // bu client-side güvence: cache'den yüklendiğinde de doğru sıra korunur)
+    // Müşterinin son aktivite zamanını hesapla (last_activity_at veya en son bakım tarihi)
+    const getActivityTime = (m: Musteri) => {
+      if (m.last_activity_at) {
+        const t = new Date(m.last_activity_at).getTime();
+        if (!isNaN(t) && t > 0) return t;
+      }
+      if (bakimlar && bakimlar.length > 0) {
+        let maxB = 0;
+        for (const b of bakimlar) {
+          if (b.musteri_id === m.id && b.tarih) {
+            const bt = new Date(b.tarih).getTime();
+            if (!isNaN(bt) && bt > maxB) maxB = bt;
+          }
+        }
+        if (maxB > 0) return maxB;
+      }
+      return m.id;
+    };
+
     const sorted = [...musteriler].sort((a, b) => {
-      const ta = a.last_activity_at ? new Date(a.last_activity_at).getTime() : 0;
-      const tb = b.last_activity_at ? new Date(b.last_activity_at).getTime() : 0;
-      return tb - ta; // DESC: en yeni en üstte
+      const ta = getActivityTime(a);
+      const tb = getActivityTime(b);
+      return tb - ta; // DESC: En yeni işlem gören en üstte
     });
 
     if (!searchLower.trim()) return sorted;
@@ -210,7 +227,7 @@ export default function MusteriListesi({
         m.ad.toLocaleLowerCase("tr-TR").includes(searchLower) ||
         (m.telefon && m.telefon.includes(searchLower))
     );
-  }, [musteriler, searchLower]);
+  }, [musteriler, bakimlar, searchLower]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

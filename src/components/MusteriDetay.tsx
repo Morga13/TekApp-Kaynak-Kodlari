@@ -184,7 +184,26 @@ export default function MusteriDetay({
     setAktifHatirlatici(null);
   };
 
-  const handleSaveTahsilat = () => {
+  const handleMakeCall = (phoneStr: string) => {
+    if (!phoneStr) return;
+    const clean = phoneStr.replace(/[^\d+]/g, "");
+    if (!clean) return;
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        window.location.href = `tel:${clean}`;
+      } else {
+        const a = document.createElement("a");
+        a.href = `tel:${clean}`;
+        a.target = "_self";
+        a.click();
+      }
+    } catch {
+      window.location.href = `tel:${clean}`;
+    }
+  };
+
+  const handleSaveTahsilat = async () => {
     const tutarNum = parseFloat(tahsilatTutar.replace(",", "."));
     if (isNaN(tutarNum) || tutarNum <= 0) {
       alert("Lütfen geçerli bir ödeme tutarı giriniz.");
@@ -197,6 +216,21 @@ export default function MusteriDetay({
       tutar: tutarNum,
       aciklama: "Tahsilat"
     });
+
+    // Ödenmemiş bakım kayıtlarını güncelle
+    const odenmemis = mBakimlar.filter(b => b.odendi === 0);
+    if (odenmemis.length > 0) {
+      let kalanTutar = tutarNum;
+      for (const b of odenmemis) {
+        if (kalanTutar >= b.toplam) {
+          onUpdateOdemeDurumu(b.id, 1);
+          kalanTutar -= b.toplam;
+        } else {
+          onUpdateOdemeDurumu(b.id, 1);
+          break;
+        }
+      }
+    }
 
     setTahsilatTutar("");
     setOdemeModalOpen(false);
@@ -211,7 +245,12 @@ export default function MusteriDetay({
 
   const handleOpenOdemeModal = () => {
     // Mevcut borç bakiyesini otomatik doldur
-    const borc = cariOzet.kalanBakiye;
+    let borc = cariOzet.kalanBakiye;
+    if (borc <= 0) {
+      // Ödenmemiş bakımların toplamı varsa onu al
+      const odenmemisToplam = mBakimlar.filter(b => b.odendi === 0).reduce((sum, b) => sum + (b.toplam || 0), 0);
+      if (odenmemisToplam > 0) borc = odenmemisToplam;
+    }
     setTahsilatTutar(borc > 0 ? String(borc) : "");
     setTahsilatTarih(new Date().toISOString().split("T")[0]);
     setOdemeModalOpen(true);
@@ -276,14 +315,15 @@ export default function MusteriDetay({
             </div>
 
             {musteri.telefon && (
-              <a
-                href={`tel:${musteri.telefon.replace(/\s/g, "")}`}
-                className="text-xs text-sky-300 font-mono flex items-center gap-1.5 active:opacity-70 transition"
+              <button
+                type="button"
+                onClick={() => handleMakeCall(musteri.telefon)}
+                className="text-xs text-sky-300 font-mono flex items-center gap-1.5 active:opacity-70 transition cursor-pointer text-left"
               >
                 <Phone className="h-3.5 w-3.5 text-sky-400 shrink-0" />
                 {musteri.telefon}
-                <span className="text-[10px] text-sky-400/70 font-sans font-medium">ara</span>
-              </a>
+                <span className="text-[10px] text-sky-400/80 font-sans font-semibold bg-sky-950/60 px-1.5 py-0.5 rounded border border-sky-400/30">Ara</span>
+              </button>
             )}
 
             {musteri.adres && (
@@ -321,13 +361,14 @@ export default function MusteriDetay({
 
           {/* Ara Butonu */}
           {musteri.telefon && (
-            <a
-              href={`tel:${musteri.telefon.replace(/\s/g, "")}`}
+            <button
+              type="button"
+              onClick={() => handleMakeCall(musteri.telefon)}
               className="p-1.5 min-h-[36px] min-w-[36px] bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white rounded-lg transition flex items-center justify-center shrink-0 shadow-xs border border-sky-500 cursor-pointer"
               title={`Ara: ${musteri.telefon}`}
             >
               <Phone className="h-3.5 w-3.5" />
-            </a>
+            </button>
           )}
 
           {/* WhatsApp Mesaj */}
