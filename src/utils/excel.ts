@@ -190,21 +190,42 @@ export async function exportToExcel(
   if (Capacitor.isNativePlatform()) {
     try {
       const base64Data = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
+
+      // 1. Aşama: Cache dizinine dosyayı yaz
       const savedFile = await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
         directory: Directory.Cache,
+        recursive: true,
       });
 
-      await Share.share({
-        title: "TekApp Bekleyen Ödemeler Yedeği",
-        text: `${fileName} Excel raporu oluşturuldu. Toplam Alacak: ₺${genelToplamAlacak.toLocaleString("tr-TR")}`,
-        url: savedFile.uri,
-        dialogTitle: "Excel Dosyasını Kaydet / Paylaş",
+      // 2. Aşama: Native Paylaş/Kaydet Diyaloğunu Başlat
+      try {
+        await Share.share({
+          title: "TekApp Bekleyen Ödemeler Yedeği",
+          text: `TekApp Excel Raporu (Toplam Alacak: ₺${genelToplamAlacak.toLocaleString("tr-TR")})`,
+          url: savedFile.uri,
+          dialogTitle: "Excel Dosyasını Kaydet / Paylaş",
+        });
+        return;
+      } catch (shareErr) {
+        console.warn("Native Share diyalogu başarısız, Documents klasörüne kaydediliyor:", shareErr);
+      }
+
+      // 3. Aşama (Android Fallback): Share diyalogu açılmazsa doğrudan Documents klasörüne yaz
+      await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Documents,
+        recursive: true,
       });
+
+      alert(`✅ Excel dosyası cihazınıza kaydedildi!\n\nDosya Yeri: Belgeler / ${fileName}`);
       return;
     } catch (err: any) {
-      console.warn("Native Filesystem/Share hatası, browser fallback deneniyor:", err);
+      console.error("Native Filesystem kaydetme hatası:", err);
+      alert("Excel dosyası kaydedilirken bir hata oluştu: " + (err?.message || err));
+      return;
     }
   }
 
