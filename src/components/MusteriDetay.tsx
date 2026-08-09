@@ -1,22 +1,24 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Capacitor } from '@capacitor/core';
-import { Musteri, Bakim, DeğişenParça } from "../types";
+import { Musteri, Bakim, DeğişenParça, Tahsilat } from "../types";
 import {
   Phone, MapPin, FileText, Calendar, Trash2, ShieldAlert, Plus, MessageSquare,
   Bell, X, Clock, CalendarCheck, Wallet, ChevronLeft
 } from "lucide-react";
-import { saveTahsilat, getMusteriCariOzet } from "../utils/cari";
+import { getMusteriCariOzet, saveTahsilat as localSaveTahsilat } from "../utils/cari";
 import { formatDateDDMMYYYY } from "../utils/date";
 
 interface MusteriDetayProps {
   musteriId: number;
   musteriler: Musteri[];
   bakimlar: Bakim[];
+  tahsilatlar?: Tahsilat[];
   onBack: () => void;
   onDeleteBakim: (id: number) => void;
   onNewBakimClick: (id: number) => void;
   onUpdateOdemeDurumu: (id: number, odendi: number) => void;
   onUpdateBakim: (id: number, updates: { toplam?: number; indirim?: number; not?: string; odendi?: number }) => void;
+  onSaveTahsilat?: (tahsilat: Omit<Tahsilat, "id"> & { id?: string }) => Promise<Tahsilat[]>;
 }
 
 const HATIRLATICI_KEY = "tekapp_bakim_hatirlatici";
@@ -67,11 +69,13 @@ export default function MusteriDetay({
   musteriId,
   musteriler,
   bakimlar,
+  tahsilatlar = [],
   onBack,
   onDeleteBakim,
   onNewBakimClick,
   onUpdateOdemeDurumu,
-  onUpdateBakim
+  onUpdateBakim,
+  onSaveTahsilat
 }: MusteriDetayProps) {
   const musteri = musteriler.find((m) => m.id === musteriId);
   const mBakimlar = React.useMemo(() => bakimlar
@@ -210,12 +214,20 @@ export default function MusteriDetay({
       return;
     }
 
-    saveTahsilat({
+    const tahsilatPayload = {
       musteri_id: musteriId,
       tarih: tahsilatTarih || new Date().toISOString().split("T")[0],
       tutar: tutarNum,
       aciklama: "Tahsilat"
-    });
+    };
+
+    // Supabase'e kaydet (tüm cihazlara anlık senkronize eder)
+    if (onSaveTahsilat) {
+      await onSaveTahsilat(tahsilatPayload);
+    } else {
+      // Fallback: localStorage'a yaz
+      localSaveTahsilat(tahsilatPayload);
+    }
 
     // Ödenmemiş bakım kayıtlarını güncelle
     const odenmemis = mBakimlar.filter(b => b.odendi === 0);
@@ -241,7 +253,8 @@ export default function MusteriDetay({
   const hatirlaticiGecmis = kalan !== null && kalan < 0;
   const hatirlaticiYakin = kalan !== null && kalan >= 0 && kalan <= 14;
 
-  const cariOzet = React.useMemo(() => getMusteriCariOzet(musteriId, bakimlar), [musteriId, bakimlar]);
+  // Supabase'den gelen tahsilatlarla bakiye hesapla (iOS/Android arası senkronize)
+  const cariOzet = React.useMemo(() => getMusteriCariOzet(musteriId, bakimlar, tahsilatlar), [musteriId, bakimlar, tahsilatlar]);
 
   const handleOpenOdemeModal = () => {
     // Mevcut borç bakiyesini otomatik doldur

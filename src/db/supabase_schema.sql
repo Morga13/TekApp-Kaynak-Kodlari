@@ -87,3 +87,31 @@ WHERE last_activity_at IS NULL;
 -- 4. Sıralama performansı için index
 CREATE INDEX IF NOT EXISTS idx_musteriler_last_activity_at
   ON musteriler (last_activity_at DESC NULLS LAST);
+
+-- ─────────────────────────────────────────────────────────────────
+-- MİGRASYON 2: Tahsilatlar tablosu (Ödemelerin tüm cihazlarda senkronize edilmesi)
+-- Supabase SQL Editor'da SADECE BİR KEZ çalıştırın
+-- ─────────────────────────────────────────────────────────────────
+
+-- 5. Tahsilatlar tablosu (iOS & Android & Web arası gerçek zamanlı ödeme senkronizasyonu)
+CREATE TABLE IF NOT EXISTS tahsilatlar (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  musteri_id   BIGINT NOT NULL REFERENCES musteriler(id) ON DELETE CASCADE,
+  bakim_id     BIGINT REFERENCES bakimlar(id) ON DELETE SET NULL,
+  taksit_id    TEXT,
+  tarih        TEXT NOT NULL,
+  tutar        NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  aciklama     TEXT DEFAULT 'Tahsilat',
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Gerçek zamanlı senkronizasyon için replication etkinleştir
+ALTER TABLE tahsilatlar REPLICA IDENTITY FULL;
+
+-- Row Level Security - herkese açık (tek kullanıcı uygulaması)
+ALTER TABLE tahsilatlar ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Herkes okuyabilir" ON tahsilatlar FOR ALL USING (true) WITH CHECK (true);
+
+-- Sorgulama performansı için index
+CREATE INDEX IF NOT EXISTS idx_tahsilatlar_musteri_id ON tahsilatlar (musteri_id);
+CREATE INDEX IF NOT EXISTS idx_tahsilatlar_bakim_id ON tahsilatlar (bakim_id);

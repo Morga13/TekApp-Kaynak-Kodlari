@@ -1,5 +1,5 @@
 import { createClient, RealtimeChannel } from "@supabase/supabase-js";
-import { Musteri, Parca, Bakim, StokKalemi } from "../types";
+import { Musteri, Parca, Bakim, StokKalemi, Tahsilat } from "../types";
 
 // Supabase bağlantı bilgileri - .env dosyasından alınır
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
@@ -297,6 +297,65 @@ export async function importAllData(data: {
 }
 
 // ─────────────────────────────────────────
+// TAHSİLATLAR (Supabase - Tüm Cihazlarda Senkronize)
+// ─────────────────────────────────────────
+
+/**
+ * Supabase'den tüm tahsilat kayıtlarını çeker.
+ * localStorage fallback: Supabase erişilemezse localStorage'dan okur.
+ */
+export async function getTahsilatlar(): Promise<Tahsilat[]> {
+  try {
+    const { data, error } = await supabase
+      .from("tahsilatlar")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data || []).map(rowToTahsilat);
+  } catch (err) {
+    // Supabase erişilemezse localStorage'dan oku (offline fallback)
+    console.warn("Supabase tahsilatlar yüklenemedi, localStorage fallback:", err);
+    try {
+      const raw = localStorage.getItem("tekapp_tahsilatlar");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+}
+
+/**
+ * Yeni bir tahsilat kaydını Supabase'e kaydeder.
+ * Başarısız olursa localStorage'a yazar (offline fallback).
+ */
+export async function saveTahsilatToSupabase(
+  tahsilat: Omit<Tahsilat, "id"> & { id?: string }
+): Promise<Tahsilat[]> {
+  const payload = {
+    id: tahsilat.id || undefined, // let DB generate if undefined
+    musteri_id: tahsilat.musteri_id,
+    bakim_id: tahsilat.bakim_id || null,
+    taksit_id: tahsilat.taksit_id || null,
+    tarih: tahsilat.tarih,
+    tutar: tahsilat.tutar,
+    aciklama: tahsilat.aciklama || "Tahsilat",
+  };
+
+  const { error } = await supabase.from("tahsilatlar").insert(payload);
+  if (error) throw error;
+  return getTahsilatlar();
+}
+
+/**
+ * Bir tahsilat kaydını Supabase'den siler.
+ */
+export async function deleteTahsilatFromSupabase(id: string): Promise<Tahsilat[]> {
+  const { error } = await supabase.from("tahsilatlar").delete().eq("id", id);
+  if (error) throw error;
+  return getTahsilatlar();
+}
+
+// ─────────────────────────────────────────
 // GERÇEK ZAMANLI SENKRONIZASYON
 // Bir cihazda değişiklik → tüm cihazlarda anında yansır
 // ─────────────────────────────────────────
@@ -317,6 +376,12 @@ export function subscribeToChanges(onUpdate: () => void): RealtimeChannel {
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "bakimlar" },
+      () => onUpdate()
+    )
+    .on(
+      "postgres_changes",
+      // TAHSİLATLAR: iOS'ta ödeme yapıldığında Android'e anında yansır
+      { event: "*", schema: "public", table: "tahsilatlar" },
       () => onUpdate()
     )
     .subscribe();
@@ -368,6 +433,20 @@ function rowToBakim(row: any): Bakim {
     indirim: row.indirim != null ? Number(row.indirim) : undefined,
   };
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTahsilat(row: any): Tahsilat {
+  return {
+    id: row.id,
+    musteri_id: row.musteri_id,
+    bakim_id: row.bakim_id || undefined,
+    taksit_id: row.taksit_id || undefined,
+    tarih: row.tarih,
+    tutar: Number(row.tutar),
+    aciklama: row.aciklama || "Tahsilat",
+  };
+}
+
 // ─────────────────────────────────────────
 // STOK
 // ─────────────────────────────────────────

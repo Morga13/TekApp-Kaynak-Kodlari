@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Musteri, Parca, Bakim, StokKalemi } from "./types";
+import { Musteri, Parca, Bakim, StokKalemi, Tahsilat } from "./types";
 import {
   getMusteriler,
   saveMusteri,
@@ -20,8 +20,11 @@ import {
   updateStokMiktar,
   addStokKalemi,
   deleteStokKalemi,
+  getTahsilatlar,
+  saveTahsilatToSupabase,
 } from "./db/supabase";
 import { decreaseStockForBakim, increaseStock, StokYetersizError } from "./db/stok";
+import { saveTahsilat as localSaveTahsilat } from "./utils/cari";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import MusteriListesi from "./components/MusteriListesi";
@@ -49,6 +52,7 @@ export default function App() {
   const [musteriler, setMusteriler] = useState<Musteri[]>([]);
   const [parcalar, setParcalar] = useState<Parca[]>([]);
   const [bakimlar, setBakimlar] = useState<Bakim[]>([]);
+  const [tahsilatlar, setTahsilatlar] = useState<Tahsilat[]>([]);
   const [stokKalemleri, setStokKalemleri] = useState<StokKalemi[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -98,11 +102,23 @@ export default function App() {
   const loadAllData = useCallback(async (showSyncing = false) => {
     try {
       if (showSyncing) setSyncing(true);
-      const [m, p, b, s] = await Promise.all([getMusteriler(), getParcalar(), getBakimlar(), getStok()]);
+      const [m, p, b, s, t] = await Promise.all([
+        getMusteriler(),
+        getParcalar(),
+        getBakimlar(),
+        getStok(),
+        getTahsilatlar(),
+      ]);
       if (Array.isArray(m)) setMusteriler(m);
       if (Array.isArray(p)) setParcalar(p);
       if (Array.isArray(b)) setBakimlar(b);
       if (Array.isArray(s)) setStokKalemleri(s);
+      if (Array.isArray(t)) {
+        setTahsilatlar(t);
+        // Supabase'den gelen tahsilatları localStorage cache'e de yaz
+        // (offline fallback için)
+        try { localStorage.setItem("tekapp_tahsilatlar", JSON.stringify(t)); } catch { /* ignore */ }
+      }
       saveToCache(Array.isArray(m) ? m : [], Array.isArray(p) ? p : [], Array.isArray(b) ? b : []);
       setIsOnline(true);
     } catch (err) {
@@ -488,6 +504,30 @@ export default function App() {
     }
   };
 
+  /**
+   * Tahsilat kaydet — Supabase'e yazar (tüm cihazlara anlık senkronize eder).
+   * Çevrimdışı ise localStorage'a yazar ve online olunca otomatik sync eder.
+   */
+  const handleSaveTahsilat = async (
+    tahsilat: Omit<Tahsilat, "id"> & { id?: string }
+  ): Promise<Tahsilat[]> => {
+    if (isOnline) {
+      try {
+        const updated = await saveTahsilatToSupabase(tahsilat);
+        setTahsilatlar(updated);
+        try { localStorage.setItem("tekapp_tahsilatlar", JSON.stringify(updated)); } catch { /* ignore */ }
+        return updated;
+      } catch (err) {
+        console.warn("Supabase tahsilat kaydı başarısız, localStorage'a alınıyor:", err);
+      }
+    }
+
+    // Çevrimdışı fallback: localStorage'a yaz
+    const updated = localSaveTahsilat(tahsilat);
+    setTahsilatlar(updated);
+    return updated;
+  };
+
   const getBackupPayload = () => ({ musteriler, parcalar, bakimlar });
 
   const sortedParcalar = React.useMemo(() => {
@@ -552,11 +592,13 @@ export default function App() {
               musteriId={selectedMusteriId}
               musteriler={musteriler}
               bakimlar={bakimlar}
+              tahsilatlar={tahsilatlar}
               onBack={() => setSelectedMusteriId(null)}
               onDeleteBakim={handleDeleteBakim}
               onNewBakimClick={handleStartNewBakimFromCustomer}
               onUpdateOdemeDurumu={handleUpdateOdemeDurumu}
               onUpdateBakim={handleUpdateBakim}
+              onSaveTahsilat={handleSaveTahsilat}
             />
           )}
         </div>
@@ -593,7 +635,9 @@ export default function App() {
         <Ayarlar
           musteriler={musteriler}
           bakimlar={bakimlar}
+          tahsilatlar={tahsilatlar}
           onUpdateOdemeDurumu={handleUpdateOdemeDurumu}
+          onSaveTahsilat={handleSaveTahsilat}
           onImportData={handleImportBackup}
           getBackupData={getBackupPayload}
         />

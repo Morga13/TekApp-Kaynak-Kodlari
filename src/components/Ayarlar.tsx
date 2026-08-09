@@ -1,16 +1,18 @@
 import React, { useRef, useState, useMemo } from "react";
 import { Upload, Download, TrendingUp, CreditCard, ChevronDown, ChevronUp, CheckCircle2, Calendar, PackageCheck, Layers, Database, Sun, Moon, Smartphone, Wallet, X, FileSpreadsheet } from "lucide-react";
-import { Musteri, Parca, Bakim } from "../types";
+import { Musteri, Parca, Bakim, Tahsilat } from "../types";
 import { COMPOSITE_PARTS_MAPPING } from "../db/stok";
 import { getStoredTheme, applyTheme, ThemeMode } from "../utils/theme";
-import { getMusteriCariOzet, saveTahsilat } from "../utils/cari";
+import { getMusteriCariOzet, saveTahsilat as localSaveTahsilat } from "../utils/cari";
 import { formatDateDDMMYYYY } from "../utils/date";
 import { exportToExcel } from "../utils/excel";
 
 interface AyarlarProps {
   musteriler?: Musteri[];
   bakimlar?: Bakim[];
+  tahsilatlar?: Tahsilat[];
   onUpdateOdemeDurumu?: (id: number, odendi: number) => void;
+  onSaveTahsilat?: (tahsilat: Omit<Tahsilat, "id"> & { id?: string }) => Promise<Tahsilat[]>;
   onImportData: (data: { musteriler: Musteri[]; parcalar: Parca[]; bakimlar: Bakim[] }) => void;
   getBackupData: () => { musteriler: Musteri[]; parcalar: Parca[]; bakimlar: Bakim[] };
 }
@@ -36,7 +38,9 @@ const getKategori = (ad: string): string => {
 export default function Ayarlar({
   musteriler = [],
   bakimlar = [],
+  tahsilatlar = [],
   onUpdateOdemeDurumu,
+  onSaveTahsilat,
   onImportData,
   getBackupData
 }: AyarlarProps) {
@@ -225,7 +229,8 @@ export default function Ayarlar({
     return musteriler
       .map((m) => {
         const mBakimlar = bakimlar.filter((b) => b.musteri_id === m.id);
-        const cari = getMusteriCariOzet(m.id, bakimlar);
+        // Supabase'den gelen tahsilatları kullan (iOS/Android arası senkronize)
+        const cari = getMusteriCariOzet(m.id, bakimlar, tahsilatlar);
         const bekleyenBakimlar = mBakimlar.filter(b => b.odendi === 0);
         const sonTarih = bekleyenBakimlar.length > 0 
           ? [...bekleyenBakimlar].sort((a, b) => b.tarih.localeCompare(a.tarih))[0].tarih 
@@ -241,7 +246,7 @@ export default function Ayarlar({
       })
       .filter((item) => item.toplamBorc > 0)
       .sort((a, b) => b.sonTarih.localeCompare(a.sonTarih)); // En yeni tarih en üstte
-  }, [musteriler, bakimlar]);
+  }, [musteriler, bakimlar, tahsilatlar]);
 
   const genelToplamAlacak = useMemo(() => {
     return borcluMusterilerListesi.reduce((sum, item) => sum + item.toplamBorc, 0);
@@ -258,7 +263,7 @@ export default function Ayarlar({
     setTahsilatTarih(new Date().toISOString().split("T")[0]);
   };
 
-  const handleSaveTahsilat = () => {
+  const handleSaveTahsilat = async () => {
     if (!odemeModalMusteri) return;
     const tutarNum = parseFloat(tahsilatTutar.replace(",", "."));
     if (isNaN(tutarNum) || tutarNum <= 0) {
@@ -266,12 +271,20 @@ export default function Ayarlar({
       return;
     }
 
-    saveTahsilat({
+    const tahsilatPayload = {
       musteri_id: odemeModalMusteri.id,
       tarih: tahsilatTarih || new Date().toISOString().split("T")[0],
       tutar: tutarNum,
       aciklama: "Tahsilat"
-    });
+    };
+
+    // Supabase'e kaydet (tüm cihazlara anlık senkronize eder)
+    if (onSaveTahsilat) {
+      await onSaveTahsilat(tahsilatPayload);
+    } else {
+      // Fallback: localStorage'a yaz
+      localSaveTahsilat(tahsilatPayload);
+    }
 
     setOdemeModalMusteri(null);
     setTahsilatTutar("");
