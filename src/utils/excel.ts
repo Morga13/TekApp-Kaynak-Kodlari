@@ -2,8 +2,8 @@ import * as XLSX from "xlsx";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import { Musteri, Parca, Bakim } from "../types";
-import { getTahsilatlar, getMusteriCariOzet } from "./cari";
+import { Musteri, Parca, Bakim, Tahsilat } from "../types";
+import { getMusteriCariOzet } from "./cari";
 import { formatDateDDMMYYYY } from "./date";
 
 /**
@@ -17,12 +17,11 @@ import { formatDateDDMMYYYY } from "./date";
 export async function exportToExcel(
   musteriler: Musteri[] = [],
   bakimlar: Bakim[] = [],
-  parcalar: Parca[] = []
+  parcalar: Parca[] = [],
+  tahsilatlar: Tahsilat[] = []
 ): Promise<void> {
   const musteriMap = new Map<number, Musteri>();
   musteriler.forEach((m) => musteriMap.set(m.id, m));
-
-  const tahsilatlar = getTahsilatlar();
 
   // ── Sayfa 1: BEKLEYEN ÖDEMELER (Uygulama Ekranı İle %100 Birebir Aynı) ──────
   const borcluMusterilerListesi = musteriler
@@ -186,12 +185,12 @@ export async function exportToExcel(
   const today = new Date().toISOString().slice(0, 10);
   const fileName = `TekApp_Bekleyen_Odemeler_${today}.xlsx`;
 
-  // ── MOBİL (ANDROID / IOS) NATIVE İÇİN İNDİRME / PAYLAŞMA ───────
+  // ── MOBİL (ANDROID / IOS) NATIVE İÇİN İNDİRME / PAYLAŞMA ───
   if (Capacitor.isNativePlatform()) {
     try {
       const base64Data = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
 
-      // 1. Aşama: Cache dizinine dosyayı yaz
+      // Dosyayı Cache dizinine yaz
       const savedFile = await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
@@ -199,32 +198,29 @@ export async function exportToExcel(
         recursive: true,
       });
 
-      // 2. Aşama: Native Paylaş/Kaydet Diyaloğunu Başlat
-      try {
-        await Share.share({
-          title: "TekApp Bekleyen Ödemeler Yedeği",
-          text: `TekApp Excel Raporu (Toplam Alacak: ₺${genelToplamAlacak.toLocaleString("tr-TR")})`,
-          url: savedFile.uri,
-          dialogTitle: "Excel Dosyasını Kaydet / Paylaş",
-        });
-        return;
-      } catch (shareErr) {
-        console.warn("Native Share diyalogu başarısız, Documents klasörüne kaydediliyor:", shareErr);
-      }
-
-      // 3. Aşama (Android Fallback): Share diyalogu açılmazsa doğrudan Documents klasörüne yaz
-      await Filesystem.writeFile({
-        path: fileName,
-        data: base64Data,
-        directory: Directory.Documents,
-        recursive: true,
+      // Native Paylaş Diyaloğu — WhatsApp, Drive, E-posta vs.
+      await Share.share({
+        title: "TekApp Bekleyen Ödemeler Raporu",
+        text: `TekApp Excel Raporu \u2014 Toplam Alacak: ₺${genelToplamAlacak.toLocaleString("tr-TR")}`,
+        url: savedFile.uri,
+        dialogTitle: "Paylaş / Kaydet",
       });
-
-      alert(`✅ Excel dosyası cihazınıza kaydedildi!\n\nDosya Yeri: Belgeler / ${fileName}`);
       return;
     } catch (err: any) {
-      console.error("Native Filesystem kaydetme hatası:", err);
-      alert("Excel dosyası kaydedilirken bir hata oluştu: " + (err?.message || err));
+      console.error("Native paylaşma hatası:", err);
+      // Son çare: Documents klasörüne kaydet
+      try {
+        const base64Data = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
+        await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Documents,
+          recursive: true,
+        });
+        alert(`✅ Excel dosyası Belgeler klasörüne kaydedildi!\n${fileName}`);
+      } catch (e2: any) {
+        alert("Excel oluşturulamadı: " + (e2?.message || e2));
+      }
       return;
     }
   }

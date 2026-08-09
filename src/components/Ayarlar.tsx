@@ -59,7 +59,7 @@ export default function Ayarlar({
   const handleExportExcel = async () => {
     try {
       const backup = getBackupData();
-      await exportToExcel(backup.musteriler || musteriler, backup.bakimlar || bakimlar, backup.parcalar || []);
+      await exportToExcel(backup.musteriler || musteriler, backup.bakimlar || bakimlar, backup.parcalar || [], tahsilatlar);
     } catch (e) {
       console.error(e);
       alert("Excel dosyası oluşturulurken bir hata oluştu.");
