@@ -6,6 +6,7 @@ import { getStoredTheme, applyTheme, ThemeMode } from "../utils/theme";
 import { getMusteriCariOzet, saveTahsilat as localSaveTahsilat } from "../utils/cari";
 import { formatDateDDMMYYYY } from "../utils/date";
 import { exportToExcel } from "../utils/excel";
+import { APP_VERSION } from "../config/version";
 
 interface AyarlarProps {
   musteriler?: Musteri[];
@@ -71,7 +72,7 @@ export default function Ayarlar({
     try {
       const backup = getBackupData();
       const payload = {
-        versiyon: "1.0",
+        versiyon: APP_VERSION,
         tarih: new Date().toISOString(),
         ...backup
       };
@@ -634,6 +635,12 @@ export default function Ayarlar({
             onChange={handleImport}
             className="hidden"
           />
+
+          <div className="pt-4 pb-2 text-center">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-200/60 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-full text-xs font-semibold">
+              TekApp v{APP_VERSION}
+            </span>
+          </div>
         </div>
       )}
 
