@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Musteri, Parca } from "../types";
-import { Check, ChevronDown, ChevronUp, Save, Plus, AlertCircle, Search } from "lucide-react";
+import { Musteri, Parca, StokKalemi } from "../types";
+import { Check, ChevronDown, ChevronUp, Save, AlertCircle, Search, Package } from "lucide-react";
 import { generateTaksitPlani, saveTaksitler } from "../utils/cari";
 
 interface SecilenMiktar {
@@ -12,6 +12,7 @@ interface YeniBakimKaydiProps {
   initialMusteriId?: number;
   musteriler: Musteri[];
   parcalar: Parca[];
+  stokKalemleri: StokKalemi[]; // YENİ: stok tablosundaki bireysel kalemler
   onSave: (bakim: {
     musteri_id: number;
     tarih: string;
@@ -27,6 +28,7 @@ export default function YeniBakimKaydi({
   initialMusteriId,
   musteriler,
   parcalar,
+  stokKalemleri,
   onSave,
   onNavigateToMusteriDetail
 }: YeniBakimKaydiProps) {
@@ -74,20 +76,37 @@ export default function YeniBakimKaydi({
     );
   };
 
+  // ─── Birleşik Katalog: parcalar + stok'ta olup parcalarda olmayanlar ─
+  // DÜZELTME: "1. Filtre Kapalı", "2. Filtre Kapalı" gibi bireysel filtreler
+  // stok tablosunda mevcut ama parcalar tablosunda yok → artık görünür
+  const mergedCatalog = useMemo((): Parca[] => {
+    const parcaAdSet = new Set(parcalar.map((p) => p.ad.toLowerCase().trim()));
+    // Negatif ID'ler: stok'tan gelen öğeler (parcalar tablosundan değil)
+    const stokOnly: Parca[] = stokKalemleri
+      .filter((s) => !parcaAdSet.has(s.ad.toLowerCase().trim()))
+      .map((s) => ({
+        id: -(s.id), // negatif ID → stok kaynağını işaret eder
+        ad: s.ad,
+        fiyat: 0,   // fiyat belirsiz — kullanıcı Özel Fiyat alanından girer
+        stok: s.miktar,
+      }));
+    return [...parcalar, ...stokOnly];
+  }, [parcalar, stokKalemleri]);
+
   const calculatedTotal = useMemo(() => {
     let sum = 0;
     secilenParcalar.forEach((item) => {
-      const p = parcalar.find((x) => x.id === item.parcaId);
+      const p = mergedCatalog.find((x) => x.id === item.parcaId);
       if (p) {
         sum += p.fiyat * item.adet;
       }
     });
     return sum;
-  }, [secilenParcalar, parcalar]);
+  }, [secilenParcalar, mergedCatalog]);
 
   const filteredParcalar = useMemo(() => {
-    return parcalar.filter((p) => p.ad.toLowerCase().includes(parcaSearch.toLowerCase()));
-  }, [parcalar, parcaSearch]);
+    return mergedCatalog.filter((p) => p.ad.toLowerCase().includes(parcaSearch.toLowerCase()));
+  }, [mergedCatalog, parcaSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,10 +125,10 @@ export default function YeniBakimKaydi({
 
     const partsToSave = secilenParcalar
       .map((item) => {
-        const p = parcalar.find((x) => x.id === item.parcaId);
+        const p = mergedCatalog.find((x) => x.id === item.parcaId);
         if (!p) return null;
         return {
-          id: p.id,
+          id: Math.abs(p.id), // stok'tan gelenlerin ID'si negatif olabilir
           ad: p.ad,
           fiyat: p.fiyat,
           adet: item.adet
@@ -221,7 +240,7 @@ export default function YeniBakimKaydi({
         </div>
 
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl divide-y divide-slate-100 dark:divide-slate-700 overflow-hidden max-h-60 overflow-y-auto">
-          {parcalar.length > 0 ? (() => {
+          {mergedCatalog.length > 0 ? (() => {
             if (filteredParcalar.length === 0) return (
               <div className="p-4 text-center text-xs text-slate-400 flex flex-col items-center gap-1.5">
                 <Search className="h-5 w-5 text-slate-300" />
@@ -251,10 +270,24 @@ export default function YeniBakimKaydi({
                       {isSelected && <Check className="h-3 w-3" />}
                     </div>
                     <div>
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 block">{p.ad}</span>
-                      <span className="text-[11px] text-emerald-600 font-bold font-mono">
-                        {p.fiyat.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 block">{p.ad}</span>
+                        {p.id < 0 && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded text-[9px] font-bold">
+                            <Package className="h-2.5 w-2.5" />
+                            Stok
+                          </span>
+                        )}
+                      </div>
+                      {p.fiyat > 0 ? (
+                        <span className="text-[11px] text-emerald-600 font-bold font-mono">
+                          {p.fiyat.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+                          Fiyat belirle → Özel Fiyat alanına girin
+                        </span>
+                      )}
                     </div>
                   </button>
 

@@ -133,9 +133,9 @@ export default function KonumKaydet({
   // ─────────────────────────────────────────────────────────────
   // HYBRID KONUM ALMA — WhatsApp Yaklaşımı
   //
-  // Faz 1: getLastKnownPosition() → anında haritayı snap et (bloklama yok)
-  // Faz 2: getCurrentPosition(highAccuracy:true, 10s) → pini rafine et
-  // Faz 3: Fallback → highAccuracy:false ile ağ tabanlı konum dene
+  // Faz 1: Son bilinen konum (max 3 saniyelik önbellek) → anlık harita snap
+  // Faz 2: getCurrentPosition(highAccuracy:true, 15s) → pini rafine et
+  // Faz 3: Fallback → highAccuracy:false ağ konumu — accuracy uyarısıyla
   // ─────────────────────────────────────────────────────────────
   const fetchLocation = useCallback(async () => {
     safeSet(setLocationStatus)("idle");
@@ -164,22 +164,25 @@ export default function KonumKaydet({
     }
 
     // ── FAZ 1: Son Bilinen Konum (anlık snap) ───────────────
-    // @capacitor/geolocation v7'de getLastKnownPosition yok;
-    // maximumAge:30000 ile cache'lenmiş son konumu anında al (non-blocking)
+    // maximumAge: SADECE son 3 saniyedeki önbellek kabul edilir.
+    // 30 saniyelik önbellek eski GPS fix'ini (ör. Kızıltepe'yi) döndürüyordu.
     try {
       let lastLat: number | null = null;
       let lastLng: number | null = null;
 
       if (Capacitor.isNativePlatform()) {
-        // maximumAge:30000 → 30 saniyeye kadar eski cache kabul et, timeout:0 → anında döner
         const lastPos = await Geolocation.getCurrentPosition({
           enableHighAccuracy: false,
-          timeout: 3000,
-          maximumAge: 30000, // 30 saniye içindeyse cache'den al
+          timeout: 2000,
+          maximumAge: 3000, // DÜZELTME: yalnızca 3 saniyelik önbellek (eski: 30000)
         });
         if (lastPos?.coords) {
-          lastLat = lastPos.coords.latitude;
-          lastLng = lastPos.coords.longitude;
+          // Ek koruma: timestamp çok eskiyse (>10s) snap etme
+          const ageMs = Date.now() - (lastPos.timestamp ?? 0);
+          if (ageMs < 10000) {
+            lastLat = lastPos.coords.latitude;
+            lastLng = lastPos.coords.longitude;
+          }
         }
       }
       // Web'de lastKnownPosition yok — doğrudan Faz 2'ye geç
@@ -192,7 +195,7 @@ export default function KonumKaydet({
         await placeMarker(lastLat, lastLng, false);
       }
     } catch {
-      // Cache'de konum yoksa sessizce devam et
+      // Cache'de geçerli konum yoksa sessizce devam et
     }
 
     // ── FAZ 2: Yüksek Hassasiyetli GPS + Wi-Fi + Cell Tower ─
@@ -202,7 +205,8 @@ export default function KonumKaydet({
       if (Capacitor.isNativePlatform()) {
         const pos = await Geolocation.getCurrentPosition({
           enableHighAccuracy: highAccuracy,
-          timeout: highAccuracy ? 10000 : 8000,
+          // DÜZELTME: timeout 10s → 15s (GPS uydu sinyali bulmak zaman alabilir)
+          timeout: highAccuracy ? 15000 : 8000,
           maximumAge: 0,
         });
         return {
@@ -215,7 +219,7 @@ export default function KonumKaydet({
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: highAccuracy,
-            timeout: highAccuracy ? 10000 : 8000,
+            timeout: highAccuracy ? 15000 : 8000,
             maximumAge: 0,
           });
         });
@@ -246,13 +250,21 @@ export default function KonumKaydet({
       }
 
       // ── FAZ 3: Ağ Tabanlı Fallback (GPS sinyal yoksa) ───────
+      // DİKKAT: Hücre kulesi / Wi-Fi konumu yanlış şehir gösterebilir!
+      // Kullanıcıya açık ve güçlü bir uyarı gösterilir.
       try {
         finalCoords = await tryGetPosition(false);
-        // Fallback başarılı — kullanıcıya düşük hassasiyet uyarısı göster
         if (isMountedRef.current) {
+          const accM = Math.round(finalCoords.accuracy);
+          // >500m ise konum muhtemelen yanlış şehir — kırmızı güçlü uyarı
+          const isVeryInaccurate = finalCoords.accuracy > 500;
           setLocationError(
-            `GPS sinyali zayıf — ağ konumu kullanılıyor (~${Math.round(finalCoords.accuracy)}m hassasiyet). ` +
-            "Daha doğru konum için açık alanda tekrar deneyin."
+            isVeryInaccurate
+              ? `⚠️ UYARI: GPS kapalı veya sinyal yok — ağ konumu çok hatalı olabilir (~${accM}m). ` +
+                "Bu konum farklı bir şehir/ilçe gösteriyor olabilir. " +
+                "Lütfen GPS'i açık alanda açıp 'Konumumu Güncelle' butonuna basın."
+              : `GPS sinyali zayıf — ağ konumu kullanılıyor (~${accM}m hassasiyet). ` +
+                "Daha doğru konum için açık alanda tekrar deneyin."
           );
         }
       } catch {
@@ -363,7 +375,14 @@ export default function KonumKaydet({
     }
   }, [coords, autoAddress, addressNote, onSubmit]);
 
-  const canSave = useMemo(() => coords !== null && autoAddress.trim().length > 0, [coords, autoAddress]);
+  // DÜZELTME: accuracy > 200m ise kaydet butonu kilitlenir
+  // Kullanıcı yanlış şehirdeki konumu kazara kaydetmesin
+  const accuracyTooLow = accuracyM !== null && accuracyM > 200;
+  const canSave = useMemo(
+    () => coords !== null && autoAddress.trim().length > 0 && !accuracyTooLow,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [coords, autoAddress, accuracyTooLow]
+  );
 
   const handleRelocate = useCallback(() => fetchLocation(), [fetchLocation]);
 
@@ -495,9 +514,11 @@ export default function KonumKaydet({
                   ? "bg-emerald-600/90 text-white"
                   : accuracyM <= 50
                   ? "bg-sky-600/90 text-white"
-                  : "bg-amber-500/90 text-white"
+                  : accuracyM <= 200
+                  ? "bg-amber-500/90 text-white"
+                  : "bg-rose-600/90 text-white animate-pulse" // >200m — UYARI
               }`}>
-                ±{Math.round(accuracyM)}m hassasiyet
+                ±{Math.round(accuracyM)}m {accuracyM > 200 ? "— KONUM HATALI OLABIİR" : "hassasiyet"}
               </div>
             )}
           </div>
@@ -556,9 +577,20 @@ export default function KonumKaydet({
 
             {/* Düşük Hassasiyet / Fallback Uyarısı */}
             {locationError && coords && (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 font-medium bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800">
-                <AlertTriangle className="h-3 w-3 shrink-0" />
+              <p className={`text-[10px] flex items-start gap-1.5 font-medium px-3 py-2 rounded-lg border ${
+                accuracyTooLow
+                  ? "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border-rose-300 dark:border-rose-800"
+                  : "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+              }`}>
+                <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
                 {locationError}
+              </p>
+            )}
+
+            {/* Accuracy çok düşükse kaydet kilidini açıkla */}
+            {accuracyTooLow && coords && (
+              <p className="text-[10px] text-rose-600 font-semibold text-center">
+                GPS kalibrasyonu bekleniyor... Tekrar deneyin veya dışarıya çıkın.
               </p>
             )}
 
@@ -574,6 +606,8 @@ export default function KonumKaydet({
             >
               {isSaving
                 ? <><Loader2 className="h-4 w-4 animate-spin" />Aktarılıyor...</>
+                : accuracyTooLow
+                ? <><AlertTriangle className="h-4 w-4" />Konum Güvenilir Değil — Tekrar Dene</>
                 : <><Save className="h-4 w-4" />Adresi Aktar</>
               }
             </button>

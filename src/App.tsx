@@ -352,22 +352,23 @@ export default function App() {
   const handleSaveBakim = async (b: Omit<Bakim, "id">) => {
     const bakimItems = JSON.parse(b.parcalar || "[]");
 
-    if (Array.isArray(bakimItems) && bakimItems.length > 0) {
-      try {
-        await decreaseStockForBakim(bakimItems);
-        setStokKalemleri(await getStok());
-      } catch (stokErr: any) {
-        if (stokErr instanceof StokYetersizError) {
-          alert(
-            "❌ Bakım kaydedilemedi! Stok yetersiz:\n\n" +
-            stokErr.hatalar.join("\n")
-          );
-          return;
+    if (isOnline) {
+      // ÇEVRİMİÇİ: önce stok kontrolü, sonra Supabase'e kaydet
+      if (Array.isArray(bakimItems) && bakimItems.length > 0) {
+        try {
+          await decreaseStockForBakim(bakimItems);
+          setStokKalemleri(await getStok());
+        } catch (stokErr: any) {
+          if (stokErr instanceof StokYetersizError) {
+            alert(
+              "❌ Bakım kaydedilemedi! Stok yetersiz:\n\n" +
+              stokErr.hatalar.join("\n")
+            );
+            return;
+          }
         }
       }
-    }
 
-    if (isOnline) {
       try {
         const yeniBakimlar = await saveBakim(b);
         setBakimlar(yeniBakimlar);
@@ -380,6 +381,8 @@ export default function App() {
     }
 
     // ÇEVRİMDİŞİ OPTİMİSTİK KAYIT
+    // DÜZELTME: Çevrimdışıyken decreaseStockForBakim çağrılmıyor (Supabase gerektirir)
+    // Bakım kuyruğa ekleniyor; internet bağlandığında processOfflineQueue çalışır
     addToOfflineQueue("SAVE_BAKIM", b);
     setOfflineQueueCount(getOfflineQueue().length);
 
@@ -610,6 +613,7 @@ export default function App() {
           initialMusteriId={preSelectedMusteriId}
           musteriler={musteriler}
           parcalar={sortedParcalar}
+          stokKalemleri={stokKalemleri}
           onSave={handleSaveBakim}
           onNavigateToMusteriDetail={(id) => { handleSelectMusteri(id); setActiveTab("musteriler"); }}
         />
