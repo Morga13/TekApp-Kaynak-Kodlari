@@ -17,31 +17,43 @@ import { StokKalemi } from "../types";
 // ─────────────────────────────────────────────────────────────────
 
 export const COMPOSITE_PARTS_MAPPING: Record<string, string[]> = {
-  // ── 5li Takımlar ──────────────────────────────────────────────
+
+  // ── 5'li Set ──────────────────────────────────────────────────
+  "5'li set - kapalı":         ["1. filtre kapalı", "2. filtre kapalı", "3. filtre kapalı", "membran", "tatlandırıcı"],
+  "5'li set - kapalı (kokonat)": ["1. filtre kapalı kokonatlı", "2. filtre kapalı kokonatlı", "3. filtre kapalı kokonatlı", "membran", "tatlandırıcı"],
+  "5'li set - açık":           ["1. filtre açık", "2. filtre açık", "3. filtre açık", "membran", "tatlandırıcı"],
+
+  // ── 4'lü Set ──────────────────────────────────────────────────
+  "4'lü set - kapalı":         ["1. filtre kapalı", "2. filtre kapalı", "3. filtre kapalı", "membran"],
+  "4'lü set - kapalı (kokonat)": ["1. filtre kapalı kokonatlı", "2. filtre kapalı kokonatlı", "3. filtre kapalı kokonatlı", "membran"],
+  "4'lü set - açık":           ["1. filtre açık", "2. filtre açık", "3. filtre açık", "membran"],
+
+  // ── 3'lü Set ──────────────────────────────────────────────────
+  "3'lü set - kapalı":         ["1. filtre kapalı", "2. filtre kapalı", "3. filtre kapalı"],
+  "3'lü set - kapalı (kokonat)": ["1. filtre kapalı kokonatlı", "2. filtre kapalı kokonatlı", "3. filtre kapalı kokonatlı"],
+  "3'lü set - açık":           ["1. filtre açık", "2. filtre açık", "3. filtre açık"],
+
+  // ── Geriye Dönük Uyumluluk (eski bakım kayıtları için) ────────
   "5li takım kapalı":   ["1. filtre kapalı", "2. filtre kapalı", "3. filtre kapalı", "membran", "tatlandırıcı"],
   "5 li takım kapalı":  ["1. filtre kapalı", "2. filtre kapalı", "3. filtre kapalı", "membran", "tatlandırıcı"],
   "5li takım kokonat":  ["1. filtre kapalı kokonatlı", "2. filtre kapalı kokonatlı", "3. filtre kapalı kokonatlı", "membran", "tatlandırıcı"],
   "5 li takım kokonat": ["1. filtre kapalı kokonatlı", "2. filtre kapalı kokonatlı", "3. filtre kapalı kokonatlı", "membran", "tatlandırıcı"],
-  "5li takım açık":     ["1. filtre açık",   "2. filtre açık",   "3. filtre açık",   "membran", "tatlandırıcı"],
-  "5 li takım açık":    ["1. filtre açık",   "2. filtre açık",   "3. filtre açık",   "membran", "tatlandırıcı"],
-
-  // ── 4lü Takımlar ──────────────────────────────────────────────
+  "5li takım açık":     ["1. filtre açık", "2. filtre açık", "3. filtre açık", "membran", "tatlandırıcı"],
+  "5 li takım açık":    ["1. filtre açık", "2. filtre açık", "3. filtre açık", "membran", "tatlandırıcı"],
   "4lü takım kapalı":   ["1. filtre kapalı", "2. filtre kapalı", "3. filtre kapalı", "membran"],
   "4 lü takım kapalı":  ["1. filtre kapalı", "2. filtre kapalı", "3. filtre kapalı", "membran"],
   "4lüğ takım kapalı":  ["1. filtre kapalı", "2. filtre kapalı", "3. filtre kapalı", "membran"],
   "4lü takım kokonat":  ["1. filtre kapalı kokonatlı", "2. filtre kapalı kokonatlı", "3. filtre kapalı kokonatlı", "membran"],
   "4 lü takım kokonat": ["1. filtre kapalı kokonatlı", "2. filtre kapalı kokonatlı", "3. filtre kapalı kokonatlı", "membran"],
-  "4lü takım açık":     ["1. filtre açık",   "2. filtre açık",   "3. filtre açık",   "membran"],
-  "4 lü takım açık":    ["1. filtre açık",   "2. filtre açık",   "3. filtre açık",   "membran"],
-  "4lüğ takım açık":    ["1. filtre açık",   "2. filtre açık",   "3. filtre açık",   "membran"],
-
-  // ── 3 Filtre Takımları ────────────────────────────────────────
+  "4lü takım açık":     ["1. filtre açık", "2. filtre açık", "3. filtre açık", "membran"],
+  "4 lü takım açık":    ["1. filtre açık", "2. filtre açık", "3. filtre açık", "membran"],
+  "4lüğ takım açık":    ["1. filtre açık", "2. filtre açık", "3. filtre açık", "membran"],
   "3 filtre kapalı":    ["1. filtre kapalı", "2. filtre kapalı", "3. filtre kapalı"],
   "3filtre kapalı":     ["1. filtre kapalı", "2. filtre kapalı", "3. filtre kapalı"],
   "3 filtre kokonat":   ["1. filtre kapalı kokonatlı", "2. filtre kapalı kokonatlı", "3. filtre kapalı kokonatlı"],
   "3filtre kokonat":    ["1. filtre kapalı kokonatlı", "2. filtre kapalı kokonatlı", "3. filtre kapalı kokonatlı"],
-  "3 filtre açık":      ["1. filtre açık",   "2. filtre açık",   "3. filtre açık"],
-  "3filtre açık":       ["1. filtre açık",   "2. filtre açık",   "3. filtre açık"],
+  "3 filtre açık":      ["1. filtre açık", "2. filtre açık", "3. filtre açık"],
+  "3filtre açık":       ["1. filtre açık", "2. filtre açık", "3. filtre açık"],
 };
 
 // ─────────────────────────────────────────────────────────────────
