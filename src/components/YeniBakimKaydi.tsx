@@ -40,9 +40,8 @@ export default function YeniBakimKaydi({
   const [odendi, setOdendi] = useState<number>(0); // 0: Borç (Ödeme Bekliyor), 1: Peşin Ödendi
   const [parcaSearch, setParcaSearch] = useState("");
   const [ozelFiyat, setOzelFiyat] = useState<string>("");
-  const [cihazTipi, setCihazTipi] = useState<'kapalı' | 'açık' | 'hepsi'>('hepsi');
 
-  // ─── Cihaz tipi filtreleme sabitleri ────────────────────────────────
+  // ─── Gizleme sabitleri (cihaz tipine göre katalog filtreleme) ───
   const GIZLE_KAPALI = new Set([
     "1. filtre açık", "2. filtre açık", "3. filtre açık",
     "3'lü set - açık", "4'lü set - açık", "5'li set - açık",
@@ -54,8 +53,8 @@ export default function YeniBakimKaydi({
     "4'lü set - kapalı", "4'lü set - kapalı (kokonat)",
     "5'li set - kapalı", "5'li set - kapalı (kokonat)",
   ]);
-  // Cihaz ürünleri → listenin en altına taşınır
   const CIHAZ_ANAHTAR = ["watalina", "aquasweet", "depo", "sebil"];
+
 
   useEffect(() => {
     const d = new Date();
@@ -120,26 +119,7 @@ export default function YeniBakimKaydi({
     return sum;
   }, [secilenParcalar, mergedCatalog]);
 
-  const filteredParcalar = useMemo(() => {
-    const gizleSet = cihazTipi === 'kapalı' ? GIZLE_KAPALI
-                   : cihazTipi === 'açık'   ? GIZLE_ACIK
-                   : null;
 
-    const isCihaz = (ad: string) =>
-      CIHAZ_ANAHTAR.some((k) => ad.toLowerCase().includes(k));
-
-    const filtered = mergedCatalog.filter((p) => {
-      const adLower = p.ad.toLowerCase().trim();
-      if (gizleSet && gizleSet.has(adLower)) return false;
-      if (!parcaSearch) return true;
-      return adLower.includes(parcaSearch.toLowerCase());
-    });
-
-    // Cihazları sona taşı
-    const normal  = filtered.filter((p) => !isCihaz(p.ad));
-    const cihazlar = filtered.filter((p) =>  isCihaz(p.ad));
-    return [...normal, ...cihazlar];
-  }, [mergedCatalog, parcaSearch, cihazTipi]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,7 +168,36 @@ export default function YeniBakimKaydi({
     onNavigateToMusteriDetail(secilenMusteriId);
   };
 
+  // ─── Seçili müşterinin not alanından cihaz tipini otomatik çıkar ───
+  const cihazTipi = useMemo((): 'kapalı' | 'açık' | 'hepsi' => {
+    const musteri = musteriler.find((m) => m.id === secilenMusteriId);
+    const not = musteri?.not || "";
+    const hasAcik   = not.includes("Açık");
+    const hasKapali = not.includes("Kapalı");
+    // Her ikisi veya hiçbiri → hepsini göster
+    if (hasAcik && !hasKapali) return 'açık';
+    if (hasKapali && !hasAcik) return 'kapalı';
+    return 'hepsi';
+  }, [musteriler, secilenMusteriId]);
+
   const selectedCustomer = musteriler.find((m) => m.id === secilenMusteriId);
+
+  const filteredParcalar = useMemo(() => {
+    const gizleSet = cihazTipi === 'kapalı' ? GIZLE_KAPALI
+                   : cihazTipi === 'açık'   ? GIZLE_ACIK
+                   : null;
+    const isCihaz = (ad: string) =>
+      CIHAZ_ANAHTAR.some((k) => ad.toLowerCase().includes(k));
+    const filtered = mergedCatalog.filter((p) => {
+      const adLower = p.ad.toLowerCase().trim();
+      if (gizleSet && gizleSet.has(adLower)) return false;
+      if (!parcaSearch) return true;
+      return adLower.includes(parcaSearch.toLowerCase());
+    });
+    const normal   = filtered.filter((p) => !isCihaz(p.ad));
+    const cihazlar = filtered.filter((p) =>  isCihaz(p.ad));
+    return [...normal, ...cihazlar];
+  }, [mergedCatalog, parcaSearch, cihazTipi]);
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-y-auto p-4 pb-24 space-y-4">
@@ -261,27 +270,20 @@ export default function YeniBakimKaydi({
           )}
         </div>
 
-        {/* Cihaz Tipi Toggle */}
-        <div className="flex gap-1.5 mb-1.5">
-          {(['hepsi', 'kapalı', 'açık'] as const).map((tip) => (
-            <button
-              key={tip}
-              type="button"
-              onClick={() => setCihazTipi(tip)}
-              className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition border ${
-                cihazTipi === tip
-                  ? tip === 'kapalı'
-                    ? 'bg-sky-600 border-sky-600 text-white'
-                    : tip === 'açık'
-                    ? 'bg-emerald-600 border-emerald-600 text-white'
-                    : 'bg-slate-700 border-slate-700 text-white'
-                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50'
-              }`}
-            >
-              {tip === 'hepsi' ? 'Tümü' : tip === 'kapalı' ? '🔵 Kapalı' : '🟢 Açık'}
-            </button>
-          ))}
-        </div>
+
+        {/* Cihaz tipi bilgi çubuğu — otomatik, seçilemez */}
+        {cihazTipi !== 'hepsi' && (
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${
+            cihazTipi === 'kapalı'
+              ? 'bg-sky-50 border-sky-200 text-sky-700 dark:bg-sky-900/20 dark:border-sky-700 dark:text-sky-300'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-700 dark:text-emerald-300'
+          }`}>
+            <span className={`h-2 w-2 rounded-full shrink-0 ${
+              cihazTipi === 'kapalı' ? 'bg-sky-500' : 'bg-emerald-500 animate-pulse'
+            }`} />
+            {cihazTipi === 'kapalı' ? 'Kapalı cihaz — açık sistem filtreleri gizlendi' : 'Açık cihaz — kapalı sistem filtreleri gizlendi'}
+          </div>
+        )}
 
         <div className="relative mb-1.5">
           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />

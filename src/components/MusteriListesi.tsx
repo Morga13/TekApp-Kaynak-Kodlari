@@ -254,8 +254,8 @@ export default function MusteriListesi({
     }
 
     const deviceTypes: string[] = [];
-    if (hasAcik) deviceTypes.push("Açık Cihaz");
-    if (hasKapali) deviceTypes.push("Kapalı Cihaz");
+    if (hasAcik) deviceTypes.push("Açık");
+    if (hasKapali) deviceTypes.push("Kapalı");
 
     setError(null);
     const success = await onAddOrEdit({
@@ -276,8 +276,9 @@ export default function MusteriListesi({
     setTelefon(m.telefon || "");
     setAdres(m.adres || "");
     const notStr = m.not || "";
-    setHasAcik(notStr.includes("Açık Cihaz"));
-    setHasKapali(notStr.includes("Kapalı Cihaz"));
+    // Geriye dönük: eski "Açık Cihaz" veya yeni "Açık" formatını destekle
+    setHasAcik(notStr.includes("Açık"));
+    setHasKapali(notStr.includes("Kapalı"));
     setError(null);
     setModalOpen(true);
   };
@@ -344,16 +345,16 @@ export default function MusteriListesi({
                         Borcu Yok
                       </span>
                     )}
-                    {m.not?.includes("Açık Cihaz") && (
+                    {m.not?.includes("Açık") && (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                         <span className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
-                        AÇIK CİHAZ
+                        AÇIK
                       </span>
                     )}
-                    {m.not?.includes("Kapalı Cihaz") && (
+                    {m.not?.includes("Kapalı") && (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
                         <span className="h-1 w-1 rounded-full bg-blue-400" />
-                        KAPALI CİHAZ
+                        KAPALI
                       </span>
                     )}
                   </div>
@@ -369,7 +370,7 @@ export default function MusteriListesi({
                     <span className="truncate min-w-0 flex-1">{m.adres}</span>
                   </div>
                 )}
-                {m.not && m.not !== "Açık Cihaz" && m.not !== "Kapalı Cihaz" && (
+                {m.not && m.not !== "Açık" && m.not !== "Kapalı" && m.not !== "Açık, Kapalı" && m.not !== "Kapalı, Açık" && m.not !== "Açık Cihaz" && m.not !== "Kapalı Cihaz" && (
                   <div className="flex items-start gap-2 text-xs text-slate-400 italic min-w-0">
                     <FileText className="h-3.5 w-3.5 text-slate-300 shrink-0 mt-0.5" />
                     <span className="line-clamp-1 truncate">{m.not}</span>
@@ -532,7 +533,7 @@ export default function MusteriListesi({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">Cihaz Durumu (Çoklu Seçilebilir)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">Cihaz Tipi (Çoklu Seçilebilir)</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -544,7 +545,7 @@ export default function MusteriListesi({
                     }`}
                   >
                     <span className={`h-2 w-2 rounded-full ${hasAcik ? "bg-emerald-500 animate-pulse" : "bg-slate-300"}`} />
-                    Açık Cihaz
+                    Açık
                   </button>
                   <button
                     type="button"
@@ -556,7 +557,7 @@ export default function MusteriListesi({
                     }`}
                   >
                     <span className={`h-2 w-2 rounded-full ${hasKapali ? "bg-blue-500" : "bg-slate-300"}`} />
-                    Kapalı Cihaz
+                    Kapalı
                   </button>
                 </div>
               </div>
