@@ -22,6 +22,7 @@ import {
   deleteStokKalemi,
   getTahsilatlar,
   saveTahsilatToSupabase,
+  syncStokToParcalar,
 } from "./db/supabase";
 import { decreaseStockForBakim, increaseStock, StokYetersizError } from "./db/stok";
 import { saveTahsilat as localSaveTahsilat } from "./utils/cari";
@@ -115,12 +116,18 @@ export default function App() {
       if (Array.isArray(s)) setStokKalemleri(s);
       if (Array.isArray(t)) {
         setTahsilatlar(t);
-        // Supabase'den gelen tahsilatları localStorage cache'e de yaz
-        // (offline fallback için)
         try { localStorage.setItem("tekapp_tahsilatlar", JSON.stringify(t)); } catch { /* ignore */ }
       }
       saveToCache(Array.isArray(m) ? m : [], Array.isArray(p) ? p : [], Array.isArray(b) ? b : []);
       setIsOnline(true);
+
+      // STOK → PARÇA KATALOĞU OTO-SYNC
+      // Stok'taki tüm kalemler (1. Filtre Kapalı, Membran vb.) parcalar tablosuna eklenir.
+      // Zaten mevcut olanlar dokunulmaz, fiyatları korunur.
+      await syncStokToParcalar();
+      // Sync sonrası parcaları yenile (yeni eklenenler UI'da görünsün)
+      const guncelParcalar = await getParcalar();
+      if (Array.isArray(guncelParcalar)) setParcalar(guncelParcalar);
     } catch (err) {
       console.error("Supabase bağlantı hatası:", err);
       setIsOnline(false);

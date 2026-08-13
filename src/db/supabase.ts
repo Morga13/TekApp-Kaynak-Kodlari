@@ -121,6 +121,49 @@ export async function deleteParca(id: number): Promise<Parca[]> {
   return getParcalar();
 }
 
+/**
+ * Stok tablosundaki TÜM kalemleri parcalar tablosuna senkronize eder.
+ * - Ada göre eşleşme (case-insensitive)
+ * - parcalar'da olmayan stok kalemi → INSERT (fiyat=0)
+ * - parcalar'da zaten olanlar → dokunulmaz (fiyat korunur)
+ * Uygulama açılışında otomatik çağrılır.
+ */
+export async function syncStokToParcalar(): Promise<void> {
+  try {
+    // 1. Stok tablosundan tüm kalemleri al
+    const { data: stokRows, error: stokErr } = await supabase
+      .from("stok")
+      .select("id, ad, miktar")
+      .order("id", { ascending: true });
+    if (stokErr || !stokRows?.length) return;
+
+    // 2. Mevcut parcalar tablosunu al (ada göre set oluştur)
+    const { data: parcaRows, error: parcaErr } = await supabase
+      .from("parcalar")
+      .select("ad");
+    if (parcaErr) return;
+
+    const mevcutAdlar = new Set(
+      (parcaRows || []).map((p: { ad: string }) => p.ad.toLowerCase().trim())
+    );
+
+    // 3. Stokta olup parcalarda olmayanları toplu INSERT et
+    const eklenecekler = stokRows
+      .filter((s: { ad: string }) => !mevcutAdlar.has(s.ad.toLowerCase().trim()))
+      .map((s: { ad: string }) => ({
+        ad: s.ad,
+        fiyat: 0,  // Fiyat belirsiz — kullanıcı ParcaKatalogunda düzenler
+        stok: 0,
+      }));
+
+    if (eklenecekler.length === 0) return;
+
+    await supabase.from("parcalar").insert(eklenecekler);
+  } catch {
+    // Sessizce başarısız ol — kritik değil
+  }
+}
+
 // ─────────────────────────────────────────
 // BAKIMLAR
 // ─────────────────────────────────────────
