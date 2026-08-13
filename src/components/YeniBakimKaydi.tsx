@@ -40,6 +40,22 @@ export default function YeniBakimKaydi({
   const [odendi, setOdendi] = useState<number>(0); // 0: Borç (Ödeme Bekliyor), 1: Peşin Ödendi
   const [parcaSearch, setParcaSearch] = useState("");
   const [ozelFiyat, setOzelFiyat] = useState<string>("");
+  const [cihazTipi, setCihazTipi] = useState<'kapalı' | 'açık' | 'hepsi'>('hepsi');
+
+  // ─── Cihaz tipi filtreleme sabitleri ────────────────────────────────
+  const GIZLE_KAPALI = new Set([
+    "1. filtre açık", "2. filtre açık", "3. filtre açık",
+    "3'lü set - açık", "4'lü set - açık", "5'li set - açık",
+  ]);
+  const GIZLE_ACIK = new Set([
+    "1. filtre kapalı", "2. filtre kapalı", "3. filtre kapalı",
+    "1. filtre kapalı kokonatlı", "2. filtre kapalı kokonatlı", "3. filtre kapalı kokonatlı",
+    "3'lü set - kapalı", "3'lü set - kapalı (kokonat)",
+    "4'lü set - kapalı", "4'lü set - kapalı (kokonat)",
+    "5'li set - kapalı", "5'li set - kapalı (kokonat)",
+  ]);
+  // Cihaz ürünleri → listenin en altına taşınır
+  const CIHAZ_ANAHTAR = ["watalina", "aquasweet", "depo", "sebil"];
 
   useEffect(() => {
     const d = new Date();
@@ -105,8 +121,25 @@ export default function YeniBakimKaydi({
   }, [secilenParcalar, mergedCatalog]);
 
   const filteredParcalar = useMemo(() => {
-    return mergedCatalog.filter((p) => p.ad.toLowerCase().includes(parcaSearch.toLowerCase()));
-  }, [mergedCatalog, parcaSearch]);
+    const gizleSet = cihazTipi === 'kapalı' ? GIZLE_KAPALI
+                   : cihazTipi === 'açık'   ? GIZLE_ACIK
+                   : null;
+
+    const isCihaz = (ad: string) =>
+      CIHAZ_ANAHTAR.some((k) => ad.toLowerCase().includes(k));
+
+    const filtered = mergedCatalog.filter((p) => {
+      const adLower = p.ad.toLowerCase().trim();
+      if (gizleSet && gizleSet.has(adLower)) return false;
+      if (!parcaSearch) return true;
+      return adLower.includes(parcaSearch.toLowerCase());
+    });
+
+    // Cihazları sona taşı
+    const normal  = filtered.filter((p) => !isCihaz(p.ad));
+    const cihazlar = filtered.filter((p) =>  isCihaz(p.ad));
+    return [...normal, ...cihazlar];
+  }, [mergedCatalog, parcaSearch, cihazTipi]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,6 +259,28 @@ export default function YeniBakimKaydi({
               Temizle ({secilenParcalar.length})
             </button>
           )}
+        </div>
+
+        {/* Cihaz Tipi Toggle */}
+        <div className="flex gap-1.5 mb-1.5">
+          {(['hepsi', 'kapalı', 'açık'] as const).map((tip) => (
+            <button
+              key={tip}
+              type="button"
+              onClick={() => setCihazTipi(tip)}
+              className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition border ${
+                cihazTipi === tip
+                  ? tip === 'kapalı'
+                    ? 'bg-sky-600 border-sky-600 text-white'
+                    : tip === 'açık'
+                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                    : 'bg-slate-700 border-slate-700 text-white'
+                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50'
+              }`}
+            >
+              {tip === 'hepsi' ? 'Tümü' : tip === 'kapalı' ? '🔵 Kapalı' : '🟢 Açık'}
+            </button>
+          ))}
         </div>
 
         <div className="relative mb-1.5">
