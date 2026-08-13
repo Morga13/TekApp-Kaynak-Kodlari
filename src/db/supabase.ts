@@ -1,5 +1,6 @@
 import { createClient, RealtimeChannel } from "@supabase/supabase-js";
 import { Musteri, Parca, Bakim, StokKalemi, Tahsilat } from "../types";
+import { restoreStockForBakim } from "../db/stok";
 
 // Supabase bağlantı bilgileri - .env dosyasından alınır
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
@@ -79,6 +80,27 @@ export async function saveMusteri(
 }
 
 export async function deleteMusteri(id: number): Promise<Musteri[]> {
+  // Müşteri silinmeden önce tüm bakımlarını al ve stokları geri yükle
+  try {
+    const { data: musteriiBakimlari } = await supabase
+      .from("bakimlar")
+      .select("id, parcalar")
+      .eq("musteri_id", id);
+
+    if (musteriiBakimlari?.length) {
+      for (const bakim of musteriiBakimlari) {
+        try {
+          const parcaList = typeof bakim.parcalar === "string"
+            ? JSON.parse(bakim.parcalar)
+            : (bakim.parcalar || []);
+          if (Array.isArray(parcaList) && parcaList.length > 0) {
+            await restoreStockForBakim(parcaList);
+          }
+        } catch { /* parse hatası olursa atla */ }
+      }
+    }
+  } catch { /* stok geri yükleme başarısız olursa silmeye devam et */ }
+
   const { error } = await supabase.from("musteriler").delete().eq("id", id);
   if (error) throw error;
   return getMusteriler();
@@ -268,6 +290,24 @@ export async function updateBakim(
 
 
 export async function deleteBakim(id: number): Promise<Bakim[]> {
+  // Silmeden ònce bakımın parçalarını çekip stoku geri yükle
+  try {
+    const { data: bakim } = await supabase
+      .from("bakimlar")
+      .select("parcalar")
+      .eq("id", id)
+      .single();
+
+    if (bakim) {
+      const parcaList = typeof bakim.parcalar === "string"
+        ? JSON.parse(bakim.parcalar)
+        : (bakim.parcalar || []);
+      if (Array.isArray(parcaList) && parcaList.length > 0) {
+        await restoreStockForBakim(parcaList);
+      }
+    }
+  } catch { /* stok geri yükleme başarısız olursa silmeye devam et */ }
+
   const { error } = await supabase.from("bakimlar").delete().eq("id", id);
   if (error) throw error;
   return getBakimlar();

@@ -216,7 +216,72 @@ export async function decreaseStockForBakim(
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 5. decreaseStokByNameDirect (supabase.ts tarafından kullanılan yardımcı)
+// 5. restoreStockForBakim(bakimParcalar)
+//    Bakım kaydı silindiğinde stoku geri yükler.
+//    decreaseStockForBakim'in tam tersi — miktarları artırır.
+//    Composite mapping'i de dikkate alır (takım → bileşenler).
+// ─────────────────────────────────────────────────────────────────
+
+interface BakimParcaItemForRestore {
+  ad: string;
+  adet: number;
+  fiyat?: number;
+  id?: number;
+}
+
+export async function restoreStockForBakim(
+  bakimParcalar: BakimParcaItemForRestore[]
+): Promise<void> {
+  if (!bakimParcalar || bakimParcalar.length === 0) return;
+
+  const mevcutStok = await fetchAllStok();
+  const stokMap = new Map<string, { id: number; miktar: number }>();
+  mevcutStok.forEach((k) => stokMap.set(normalize(k.ad), { id: k.id, miktar: k.miktar }));
+
+  // Toplam geri yükleme haritası: normalizeAd → geri yüklenecek miktar
+  const geriYuklemeHarita = new Map<string, number>();
+
+  for (const item of bakimParcalar) {
+    const normalAd = normalize(item.ad);
+    const adet = item.adet || 1;
+    const bilesenler = COMPOSITE_PARTS_MAPPING[normalAd];
+
+    if (bilesenler) {
+      // Takım ürünü → bileşenlerini geri yükle
+      bilesenler.forEach((b) => {
+        const nb = normalize(b);
+        geriYuklemeHarita.set(nb, (geriYuklemeHarita.get(nb) || 0) + adet);
+      });
+    } else {
+      // Tekli ürün → stokta varsa geri yükle
+      if (stokMap.has(normalAd)) {
+        geriYuklemeHarita.set(normalAd, (geriYuklemeHarita.get(normalAd) || 0) + adet);
+      }
+    }
+  }
+
+  // Tüm geri yüklemeleri paralel yap
+  const promises: Promise<void>[] = [];
+  geriYuklemeHarita.forEach((geri, normalAd) => {
+    const stokInfo = stokMap.get(normalAd);
+    if (!stokInfo) return;
+    const yeniMiktar = stokInfo.miktar + geri;
+    promises.push(
+      Promise.resolve(
+        supabase
+          .from("stok")
+          .update({ miktar: yeniMiktar })
+          .eq("id", stokInfo.id)
+          .then(({ error }) => { if (error) throw error; })
+      )
+    );
+  });
+
+  await Promise.all(promises);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 6. decreaseStokByNameDirect (supabase.ts tarafından kullanılan yardımcı)
 //    Tek bir kalem için ada göre direkt düşüm yapar.
 // ─────────────────────────────────────────────────────────────────
 export async function decreaseStokByNameDirect(
