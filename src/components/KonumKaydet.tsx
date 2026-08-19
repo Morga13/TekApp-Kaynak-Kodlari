@@ -24,28 +24,73 @@ interface KonumKaydetProps {
 
 type LocationStatus = "idle" | "last_known" | "refining" | "success" | "denied" | "error";
 
-// ─── Nominatim Reverse Geocoding ──────────────────────────────
-async function reverseGeocode(lat: number, lng: number): Promise<string> {
+// ─── BigDataCloud Reverse Geocoding (ücretsiz, iyi TR kapsamı) ─
+async function reverseGecodeBigData(lat: number, lng: number): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=tr`,
+      { signal: AbortSignal.timeout(6000) }
+    );
+    if (!res.ok) return null;
+    const d = await res.json();
+    // d.locality = şehir/ilçe merkezi | d.localityInfo.administrative = köy/mahalle hiyerarşisi
+    const parts: string[] = [];
+
+    // Köy / mahalle / mezra (en küçük idari birim → büyüğe doğru)
+    const admins: { name: string; adminLevel: number }[] =
+      d.localityInfo?.administrative ?? [];
+    // adminLevel 9-10 = köy/mahalle, 7-8 = ilçe, 5-6 = il
+    const village  = admins.find(a => a.adminLevel >= 9)?.name;
+    const district = admins.find(a => a.adminLevel >= 7 && a.adminLevel <= 8)?.name;
+    const city     = admins.find(a => a.adminLevel >= 5 && a.adminLevel <= 6)?.name;
+
+    if (d.principalSubdivision) parts.push(d.principalSubdivision); // İl (Mardin gibi)
+    if (city && city !== d.principalSubdivision) parts.push(city);
+    if (district && district !== city) parts.push(district);
+    if (village && village !== district) parts.push(village);
+    if (d.locality && d.locality !== village && d.locality !== district) parts.push(d.locality);
+    if (d.postcode) parts.push(d.postcode);
+
+    return parts.length >= 2 ? parts.join(" / ") : null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Nominatim Fallback ────────────────────────────────────────
+async function reverseGeocodeNominatim(lat: number, lng: number): Promise<string | null> {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=tr`,
-      { headers: { "User-Agent": "TekApp/1.0" } }
+      { headers: { "User-Agent": "TekApp/1.0" }, signal: AbortSignal.timeout(6000) }
     );
-    if (!res.ok) return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    if (!res.ok) return null;
     const data = await res.json();
     const a = data.address || {};
     const parts = [
-      a.road || a.street || a.pedestrian || a.footway || "",
+      a.state || "",                                            // İl
+      a.county || a.province || "",                             // İlçe
+      a.village || a.town || a.city || a.municipality || "",   // Köy / İlçe merkezi / Şehir
+      a.suburb || a.neighbourhood || a.quarter || "",           // Mahalle
+      a.road || a.street || a.pedestrian || "",                 // Sokak
       a.house_number ? `No:${a.house_number}` : "",
-      a.neighbourhood || a.suburb || a.quarter || "",
-      a.district || a.town || a.city_district || "",
-      a.city || a.county || "",
     ].filter(Boolean);
-    return parts.join(", ") || data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    return parts.length >= 2 ? parts.join(", ") : (data.display_name || null);
   } catch {
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    return null;
   }
 }
+
+// ─── Ana Reverse Geocode (BigDataCloud → Nominatim → koordinat) ─
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  const bigData = await reverseGecodeBigData(lat, lng);
+  if (bigData) return bigData;
+  const nominatim = await reverseGeocodeNominatim(lat, lng);
+  if (nominatim) return nominatim;
+  // Son çare: Google Maps linki (kullanıcı tıklayıp haritada görebilir)
+  return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+}
+
 
 // ─── Ana Bileşen ──────────────────────────────────────────────
 export default function KonumKaydet({
