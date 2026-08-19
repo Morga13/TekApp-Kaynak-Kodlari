@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   MapPin, Navigation, Save, X, Loader2, AlertTriangle,
-  ChevronUp, ChevronDown, Building2, StickyNote, LocateFixed, Settings
+  ChevronUp, ChevronDown, Building2, StickyNote, LocateFixed, Settings,
+  Search, Clipboard, Layers, Compass, ExternalLink, Check
 } from "lucide-react";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
 import "leaflet/dist/leaflet.css";
+import {
+  parseCoordinatesOrLink,
+  formatAddress,
+  parseStoredAddress,
+  ParsedCoordinates,
+} from "../utils/location";
 
 // ─── Tip Tanımlamaları ────────────────────────────────────────
 export interface KonumPayload {
@@ -24,8 +31,15 @@ interface KonumKaydetProps {
 
 type LocationStatus = "idle" | "last_known" | "refining" | "success" | "denied" | "error";
 
+interface ReverseGeocodeResult {
+  mahalleKoy: string;
+  sokakCadde: string;
+  binaKapiNo: string;
+  formatted: string;
+}
+
 // ─── BigDataCloud Reverse Geocoding (ücretsiz, iyi TR kapsamı) ─
-async function reverseGecodeBigData(lat: number, lng: number): Promise<string | null> {
+async function reverseGeocodeBigData(lat: number, lng: number): Promise<ReverseGeocodeResult | null> {
   try {
     const res = await fetch(
       `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=tr`,
@@ -33,32 +47,36 @@ async function reverseGecodeBigData(lat: number, lng: number): Promise<string | 
     );
     if (!res.ok) return null;
     const d = await res.json();
-    // d.locality = şehir/ilçe merkezi | d.localityInfo.administrative = köy/mahalle hiyerarşisi
-    const parts: string[] = [];
+    const admins: { name: string; adminLevel: number }[] = d.localityInfo?.administrative ?? [];
 
-    // Köy / mahalle / mezra (en küçük idari birim → büyüğe doğru)
-    const admins: { name: string; adminLevel: number }[] =
-      d.localityInfo?.administrative ?? [];
-    // adminLevel 9-10 = köy/mahalle, 7-8 = ilçe, 5-6 = il
-    const village  = admins.find(a => a.adminLevel >= 9)?.name;
-    const district = admins.find(a => a.adminLevel >= 7 && a.adminLevel <= 8)?.name;
-    const city     = admins.find(a => a.adminLevel >= 5 && a.adminLevel <= 6)?.name;
+    const village = admins.find((a) => a.adminLevel >= 9)?.name;
+    const district = admins.find((a) => a.adminLevel >= 7 && a.adminLevel <= 8)?.name;
+    const city = admins.find((a) => a.adminLevel >= 5 && a.adminLevel <= 6)?.name;
 
-    if (d.principalSubdivision) parts.push(d.principalSubdivision); // İl (Mardin gibi)
-    if (city && city !== d.principalSubdivision) parts.push(city);
-    if (district && district !== city) parts.push(district);
-    if (village && village !== district) parts.push(village);
-    if (d.locality && d.locality !== village && d.locality !== district) parts.push(d.locality);
-    if (d.postcode) parts.push(d.postcode);
+    const areaParts: string[] = [];
+    if (d.principalSubdivision) areaParts.push(d.principalSubdivision);
+    if (city && city !== d.principalSubdivision) areaParts.push(city);
+    if (district && district !== city) areaParts.push(district);
+    if (village && village !== district) areaParts.push(village);
+    if (d.locality && !areaParts.includes(d.locality)) areaParts.push(d.locality);
 
-    return parts.length >= 2 ? parts.join(" / ") : null;
+    const mahalleKoy = areaParts.join(" / ");
+    const sokakCadde = "";
+    const binaKapiNo = "";
+
+    return {
+      mahalleKoy: mahalleKoy || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      sokakCadde,
+      binaKapiNo,
+      formatted: mahalleKoy,
+    };
   } catch {
     return null;
   }
 }
 
-// ─── Nominatim Fallback ────────────────────────────────────────
-async function reverseGeocodeNominatim(lat: number, lng: number): Promise<string | null> {
+// ─── Nominatim Reverse Geocoding ──────────────────────────────
+async function reverseGeocodeNominatim(lat: number, lng: number): Promise<ReverseGeocodeResult | null> {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=tr`,
@@ -67,30 +85,52 @@ async function reverseGeocodeNominatim(lat: number, lng: number): Promise<string
     if (!res.ok) return null;
     const data = await res.json();
     const a = data.address || {};
+
+    const il = a.state || a.province || "";
+    const ilce = a.county || a.district || a.town || "";
+    const koyMahalle = a.village || a.suburb || a.neighbourhood || a.quarter || a.city_district || "";
+
+    const areaParts = [il, ilce, koyMahalle].filter(Boolean);
+    const mahalleKoy = areaParts.length >= 2 ? areaParts.join(" / ") : data.display_name || "";
+
+    const sokakCadde = a.road || a.street || a.pedestrian || a.footway || "";
+    const binaKapiNo = a.house_number ? `No: ${a.house_number}` : "";
+
     const parts = [
-      a.state || "",                                            // İl
-      a.county || a.province || "",                             // İlçe
-      a.village || a.town || a.city || a.municipality || "",   // Köy / İlçe merkezi / Şehir
-      a.suburb || a.neighbourhood || a.quarter || "",           // Mahalle
-      a.road || a.street || a.pedestrian || "",                 // Sokak
-      a.house_number ? `No:${a.house_number}` : "",
+      mahalleKoy,
+      sokakCadde,
+      binaKapiNo,
     ].filter(Boolean);
-    return parts.length >= 2 ? parts.join(", ") : (data.display_name || null);
+
+    return {
+      mahalleKoy,
+      sokakCadde,
+      binaKapiNo,
+      formatted: parts.join(" - "),
+    };
   } catch {
     return null;
   }
 }
 
-// ─── Ana Reverse Geocode (BigDataCloud → Nominatim → koordinat) ─
-async function reverseGeocode(lat: number, lng: number): Promise<string> {
-  const bigData = await reverseGecodeBigData(lat, lng);
-  if (bigData) return bigData;
+// ─── Ana Reverse Geocode ──────────────────────────────────────
+async function fetchReverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult> {
+  const bigData = await reverseGeocodeBigData(lat, lng);
   const nominatim = await reverseGeocodeNominatim(lat, lng);
-  if (nominatim) return nominatim;
-  // Son çare: Google Maps linki (kullanıcı tıklayıp haritada görebilir)
-  return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-}
 
+  const mahalleKoy = bigData?.mahalleKoy || nominatim?.mahalleKoy || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  const sokakCadde = nominatim?.sokakCadde || "";
+  const binaKapiNo = nominatim?.binaKapiNo || "";
+
+  const formatted = [mahalleKoy, sokakCadde, binaKapiNo].filter(Boolean).join(" - ");
+
+  return {
+    mahalleKoy,
+    sokakCadde,
+    binaKapiNo,
+    formatted: formatted || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+  };
+}
 
 // ─── Ana Bileşen ──────────────────────────────────────────────
 export default function KonumKaydet({
@@ -99,14 +139,42 @@ export default function KonumKaydet({
   initialCoords,
   initialData,
 }: KonumKaydetProps) {
+  // İlk veri çözümlemesi
+  const initialParsed = useMemo(() => {
+    if (initialData?.auto_address) {
+      return parseStoredAddress(initialData.auto_address);
+    }
+    return null;
+  }, [initialData]);
+
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-    initialCoords ? { lat: initialCoords.latitude, lng: initialCoords.longitude } : null
+    initialCoords
+      ? { lat: initialCoords.latitude, lng: initialCoords.longitude }
+      : initialParsed?.coords
+      ? { lat: initialParsed.coords.lat, lng: initialParsed.coords.lng }
+      : null
   );
+
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [accuracyM, setAccuracyM] = useState<number | null>(null); // metre cinsinden hassasiyet
-  const [autoAddress, setAutoAddress] = useState(initialData?.auto_address || "");
-  const [addressNote, setAddressNote] = useState(initialData?.address_note || "");
+  const [accuracyM, setAccuracyM] = useState<number | null>(null);
+
+  // Ayrıştırılmış Adres Alanları
+  const [mahalleKoy, setMahalleKoy] = useState(initialParsed?.mahalleKoy || "");
+  const [sokakCadde, setSokakCadde] = useState(initialParsed?.sokakCadde || "");
+  const [binaKapiNo, setBinaKapiNo] = useState(initialParsed?.binaKapiNo || "");
+  const [adresTarifi, setAdresTarifi] = useState(
+    initialParsed?.adresTarifi || initialData?.address_note || ""
+  );
+
+  // Arama & Yapıştırma State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [copiedCoords, setCopiedCoords] = useState(false);
+
+  // Harita Katmanı: "hybrid" (Google Uydu + Yollar) vs "street" (OSM)
+  const [mapLayer, setMapLayer] = useState<"hybrid" | "street">("hybrid");
+
   const [isFormExpanded, setIsFormExpanded] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [reverseGeoLoading, setReverseGeoLoading] = useState(false);
@@ -116,78 +184,86 @@ export default function KonumKaydet({
   const mapRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const markerRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tileLayerRef = useRef<any>(null);
   const isMountedRef = useRef(true);
 
   // Unmount guard
   useEffect(() => {
     isMountedRef.current = true;
-    return () => { isMountedRef.current = false; };
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
-  // ─── Güvenli State Setter'lar ──────────────────────────────
-  const safeSet = useCallback(<T,>(setter: React.Dispatch<React.SetStateAction<T>>) => (val: T) => {
-    if (isMountedRef.current) setter(val);
-  }, []);
+  const safeSet = useCallback(
+    <T,>(setter: React.Dispatch<React.SetStateAction<T>>) => (val: T) => {
+      if (isMountedRef.current) setter(val);
+    },
+    []
+  );
 
   // ─── Marker ekle/taşı ─────────────────────────────────────
-  const placeMarker = useCallback(async (lat: number, lng: number, runGeocode = true) => {
-    const map = mapRef.current;
-    if (!map) return;
+  const placeMarker = useCallback(
+    async (lat: number, lng: number, runGeocode = true) => {
+      const map = mapRef.current;
+      if (!map) return;
 
-    const L = (await import("leaflet")).default;
+      const L = (await import("leaflet")).default;
 
-    const icon = L.icon({
-      iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-      iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-      shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41],
-    });
-
-    if (markerRef.current) {
-      markerRef.current.setLatLng([lat, lng]);
-    } else {
-      const marker = L.marker([lat, lng], { icon, draggable: true }).addTo(map);
-      marker.on("dragend", async () => {
-        const pos = marker.getLatLng();
-        if (!isMountedRef.current) return;
-        safeSet(setCoords)({ lat: pos.lat, lng: pos.lng });
-        safeSet(setAccuracyM)(null);
-        safeSet(setReverseGeoLoading)(true);
-        const addr = await reverseGeocode(pos.lat, pos.lng);
-        safeSet(setAutoAddress)(addr);
-        safeSet(setReverseGeoLoading)(false);
+      const icon = L.icon({
+        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41],
       });
-      markerRef.current = marker;
-    }
 
-    map.setView([lat, lng], 18, { animate: true });
-
-    if (runGeocode) {
-      safeSet(setReverseGeoLoading)(true);
-      const addr = await reverseGeocode(lat, lng);
-      if (isMountedRef.current) {
-        setAutoAddress(addr);
-        setReverseGeoLoading(false);
+      if (markerRef.current) {
+        markerRef.current.setLatLng([lat, lng]);
+      } else {
+        const marker = L.marker([lat, lng], { icon, draggable: true }).addTo(map);
+        marker.on("dragend", async () => {
+          const pos = marker.getLatLng();
+          if (!isMountedRef.current) return;
+          safeSet(setCoords)({ lat: pos.lat, lng: pos.lng });
+          safeSet(setAccuracyM)(null);
+          safeSet(setReverseGeoLoading)(true);
+          const res = await fetchReverseGeocode(pos.lat, pos.lng);
+          if (isMountedRef.current) {
+            setMahalleKoy(res.mahalleKoy);
+            if (res.sokakCadde) setSokakCadde(res.sokakCadde);
+            if (res.binaKapiNo) setBinaKapiNo(res.binaKapiNo);
+            setReverseGeoLoading(false);
+          }
+        });
+        markerRef.current = marker;
       }
-    }
-  }, [safeSet]);
 
-  // ─────────────────────────────────────────────────────────────
-  // HYBRID KONUM ALMA — WhatsApp Yaklaşımı
-  //
-  // Faz 1: Son bilinen konum (max 3 saniyelik önbellek) → anlık harita snap
-  // Faz 2: getCurrentPosition(highAccuracy:true, 15s) → pini rafine et
-  // Faz 3: Fallback → highAccuracy:false ağ konumu — accuracy uyarısıyla
-  // ─────────────────────────────────────────────────────────────
+      map.setView([lat, lng], map.getZoom() > 15 ? map.getZoom() : 18, { animate: true });
+
+      if (runGeocode) {
+        safeSet(setReverseGeoLoading)(true);
+        const res = await fetchReverseGeocode(lat, lng);
+        if (isMountedRef.current) {
+          setMahalleKoy(res.mahalleKoy);
+          if (res.sokakCadde) setSokakCadde(res.sokakCadde);
+          if (res.binaKapiNo) setBinaKapiNo(res.binaKapiNo);
+          setReverseGeoLoading(false);
+        }
+      }
+    },
+    [safeSet]
+  );
+
+  // ─── GPS Konum Alma ───────────────────────────────────────
   const fetchLocation = useCallback(async () => {
     safeSet(setLocationStatus)("idle");
     safeSet(setLocationError)(null);
     safeSet(setAccuracyM)(null);
 
-    // ── Kapasite İzin Kontrolü (sadece native) ──────────────
     if (Capacitor.isNativePlatform()) {
       let perm = await Geolocation.checkPermissions();
       if (perm.location !== "granted") {
@@ -208,9 +284,6 @@ export default function KonumKaydet({
       }
     }
 
-    // ── FAZ 1: Son Bilinen Konum (anlık snap) ───────────────
-    // maximumAge: SADECE son 3 saniyedeki önbellek kabul edilir.
-    // 30 saniyelik önbellek eski GPS fix'ini (ör. Kızıltepe'yi) döndürüyordu.
     try {
       let lastLat: number | null = null;
       let lastLng: number | null = null;
@@ -219,10 +292,9 @@ export default function KonumKaydet({
         const lastPos = await Geolocation.getCurrentPosition({
           enableHighAccuracy: false,
           timeout: 2000,
-          maximumAge: 3000, // DÜZELTME: yalnızca 3 saniyelik önbellek (eski: 30000)
+          maximumAge: 3000,
         });
         if (lastPos?.coords) {
-          // Ek koruma: timestamp çok eskiyse (>10s) snap etme
           const ageMs = Date.now() - (lastPos.timestamp ?? 0);
           if (ageMs < 10000) {
             lastLat = lastPos.coords.latitude;
@@ -230,27 +302,22 @@ export default function KonumKaydet({
           }
         }
       }
-      // Web'de lastKnownPosition yok — doğrudan Faz 2'ye geç
 
       if (lastLat !== null && lastLng !== null && isMountedRef.current) {
-        // Haritayı hemen snap et — UI bloklanmadan görünür konum
         setCoords({ lat: lastLat, lng: lastLng });
         setLocationStatus("last_known");
-        // Geocode'u beklemeden marker'ı koy (runGeocode=false)
         await placeMarker(lastLat, lastLng, false);
       }
     } catch {
-      // Cache'de geçerli konum yoksa sessizce devam et
+      // cache yoksa devam et
     }
 
-    // ── FAZ 2: Yüksek Hassasiyetli GPS + Wi-Fi + Cell Tower ─
     safeSet(setLocationStatus)("refining");
 
     const tryGetPosition = async (highAccuracy: boolean): Promise<{ lat: number; lng: number; accuracy: number }> => {
       if (Capacitor.isNativePlatform()) {
         const pos = await Geolocation.getCurrentPosition({
           enableHighAccuracy: highAccuracy,
-          // DÜZELTME: timeout 10s → 15s (GPS uydu sinyali bulmak zaman alabilir)
           timeout: highAccuracy ? 15000 : 8000,
           maximumAge: 0,
         });
@@ -260,7 +327,6 @@ export default function KonumKaydet({
           accuracy: pos.coords.accuracy ?? 0,
         };
       } else {
-        // Web tarayıcı Geolocation API
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: highAccuracy,
@@ -279,7 +345,6 @@ export default function KonumKaydet({
     let finalCoords: { lat: number; lng: number; accuracy: number } | null = null;
 
     try {
-      // Faz 2a: Yüksek hassasiyetli (GPS + Fused)
       finalCoords = await tryGetPosition(true);
     } catch (highAccErr) {
       if (!isMountedRef.current) return;
@@ -288,55 +353,36 @@ export default function KonumKaydet({
       const isDenied = errMsg.toLowerCase().includes("denied") || errMsg.toLowerCase().includes("disabled");
 
       if (isDenied) {
-        // İzin reddedildiyse fallback'e geçmeden direkt hata ver
         setLocationStatus("denied");
         setLocationError("Konum izni veya GPS kapalı. Ayarlardan 'Tam Konum' iznini açınız.");
         return;
       }
 
-      // ── FAZ 3: Ağ Tabanlı Fallback (GPS sinyal yoksa) ───────
-      // DİKKAT: Hücre kulesi / Wi-Fi konumu yanlış şehir gösterebilir!
-      // Kullanıcıya açık ve güçlü bir uyarı gösterilir.
       try {
         finalCoords = await tryGetPosition(false);
         if (isMountedRef.current) {
           const accM = Math.round(finalCoords.accuracy);
-          // >500m ise konum muhtemelen yanlış şehir — kırmızı güçlü uyarı
-          const isVeryInaccurate = finalCoords.accuracy > 500;
           setLocationError(
-            isVeryInaccurate
-              ? `⚠️ UYARI: GPS kapalı veya sinyal yok — ağ konumu çok hatalı olabilir (~${accM}m). ` +
-                "Bu konum farklı bir şehir/ilçe gösteriyor olabilir. " +
-                "Lütfen GPS'i açık alanda açıp 'Konumumu Güncelle' butonuna basın."
-              : `GPS sinyali zayıf — ağ konumu kullanılıyor (~${accM}m hassasiyet). ` +
-                "Daha doğru konum için açık alanda tekrar deneyin."
+            `GPS sinyali zayıf — ağ konumu kullanılıyor (~${accM}m). Daha kesin konum için haritada pini tam kapıya sürükleyebilirsiniz.`
           );
         }
       } catch {
         if (!isMountedRef.current) return;
-        const isTimeout = errMsg.toLowerCase().includes("timeout");
         setLocationStatus("error");
-        setLocationError(
-          isTimeout
-            ? "GPS sinyali zayıf — konum alınamadı. Dışarı çıkarak tekrar deneyin."
-            : "Konum alınamadı. GPS ve internet bağlantısını kontrol edin."
-        );
+        setLocationError("GPS sinyali alınamadı. Arama çubuğuna adres/koordinat yapıştırabilir veya haritaya tıklayabilirsiniz.");
         return;
       }
     }
 
     if (!isMountedRef.current || !finalCoords) return;
 
-    // ── Başarılı: Pin rafine edildi ─────────────────────────
     setCoords({ lat: finalCoords.lat, lng: finalCoords.lng });
     setAccuracyM(finalCoords.accuracy);
     setLocationStatus("success");
-    // Geocode da dahil marker yerleştir
     await placeMarker(finalCoords.lat, finalCoords.lng, true);
-
   }, [placeMarker, safeSet]);
 
-  // ─── Leaflet Harita Başlat ─────────────────────────────────
+  // ─── Harita Başlat ─────────────────────────────────────────
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
@@ -354,16 +400,26 @@ export default function KonumKaydet({
 
         const defaultCenter: [number, number] = initialCoords
           ? [initialCoords.latitude, initialCoords.longitude]
-          : [39.9334, 32.8597];
+          : initialParsed?.coords
+          ? [initialParsed.coords.lat, initialParsed.coords.lng]
+          : [37.2912, 40.5821]; // Mardin/Kızıltepe varsayılan
 
         map = L.map(container, {
           center: defaultCenter,
-          zoom: initialCoords ? 18 : 6,
+          zoom: (initialCoords || initialParsed?.coords) ? 18 : 14,
           zoomControl: false,
           attributionControl: false,
         });
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+        // Google Hybrid (Uydu + Sokak/Köy İsimleri)
+        const hybridLayer = L.tileLayer(
+          "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+          { maxZoom: 21, subdomains: ["mt0", "mt1", "mt2", "mt3"] }
+        );
+
+        hybridLayer.addTo(map);
+        tileLayerRef.current = hybridLayer;
+
         L.control.zoom({ position: "bottomright" }).addTo(map);
         mapRef.current = map;
 
@@ -372,11 +428,13 @@ export default function KonumKaydet({
           if (!isMountedRef.current) return;
           setCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
           setAccuracyM(null);
-          await placeMarker(e.latlng.lat, e.latlng.lng);
+          await placeMarker(e.latlng.lat, e.latlng.lng, true);
         });
 
         if (initialCoords) {
-          await placeMarker(initialCoords.latitude, initialCoords.longitude);
+          await placeMarker(initialCoords.latitude, initialCoords.longitude, false);
+        } else if (initialParsed?.coords) {
+          await placeMarker(initialParsed.coords.lat, initialParsed.coords.lng, false);
         }
       } catch (e) {
         console.error("Leaflet başlatma hatası:", e);
@@ -390,274 +448,455 @@ export default function KonumKaydet({
           mapRef.current = null;
           markerRef.current = null;
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ─── Katman Değiştir (Uydu / Sokak) ────────────────────────
+  const toggleMapLayer = useCallback(async () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const L = (await import("leaflet")).default;
+
+    const newLayer = mapLayer === "hybrid" ? "street" : "hybrid";
+    setMapLayer(newLayer);
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+
+    let layer;
+    if (newLayer === "hybrid") {
+      layer = L.tileLayer("https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", {
+        maxZoom: 21,
+      });
+    } else {
+      layer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+      });
+    }
+
+    layer.addTo(map);
+    tileLayerRef.current = layer;
+  }, [mapLayer]);
 
   // ─── İlk açılışta otomatik konum al ───────────────────────
   useEffect(() => {
-    if (!initialCoords) {
-      const t = setTimeout(() => { fetchLocation(); }, 300);
+    if (!initialCoords && !initialParsed?.coords) {
+      const t = setTimeout(() => {
+        fetchLocation();
+      }, 300);
       return () => clearTimeout(t);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── Form Gönder ───────────────────────────────────────────
+  // ─── Arama / Koordinat / WhatsApp Linki İşleme ───────────────
+  const handleSearchOrCoordinate = useCallback(
+    async (queryText: string) => {
+      const text = queryText.trim();
+      if (!text) return;
+
+      setIsSearching(true);
+      try {
+        // 1. Koordinat veya Google Maps Linki mi?
+        const parsed = parseCoordinatesOrLink(text);
+        if (parsed) {
+          setCoords({ lat: parsed.lat, lng: parsed.lng });
+          setAccuracyM(null);
+          await placeMarker(parsed.lat, parsed.lng, true);
+          setSearchQuery("");
+          setIsSearching(false);
+          return;
+        }
+
+        // 2. Metin Arama (Nominatim)
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=1&accept-language=tr&countrycodes=tr`,
+          { headers: { "User-Agent": "TekApp/1.0" }, signal: AbortSignal.timeout(7000) }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            setCoords({ lat, lng: lon });
+            setAccuracyM(null);
+            await placeMarker(lat, lon, true);
+            setSearchQuery("");
+          } else {
+            alert("Aradığınız adres bulunamadı. Lütfen daha belirgin bir isim, ilçe veya koordinat girin.");
+          }
+        }
+      } catch (err) {
+        console.error("Arama hatası:", err);
+        alert("Arama yapılamadı. Koordinatları doğrudan (örn: 37.1945, 40.5821) girebilirsiniz.");
+      } finally {
+        if (isMountedRef.current) setIsSearching(false);
+      }
+    },
+    [placeMarker]
+  );
+
+  // ─── Panodan Yapıştır ─────────────────────────────────────
+  const handlePasteClipboard = useCallback(async () => {
+    try {
+      let text = "";
+      if (navigator.clipboard?.readText) {
+        text = await navigator.clipboard.readText();
+      }
+      if (!text) {
+        text = prompt("WhatsApp'tan gelen konumu, Google Maps linkini veya koordinatları yapıştırın:") || "";
+      }
+      if (text.trim()) {
+        setSearchQuery(text.trim());
+        await handleSearchOrCoordinate(text.trim());
+      }
+    } catch {
+      const text = prompt("WhatsApp'tan gelen konumu, Google Maps linkini veya koordinatları yapıştırın:") || "";
+      if (text.trim()) {
+        setSearchQuery(text.trim());
+        await handleSearchOrCoordinate(text.trim());
+      }
+    }
+  }, [handleSearchOrCoordinate]);
+
+  // ─── Form Gönder (Tam ve Net Adresi Oluştur) ───────────────
   const handleSubmit = useCallback(async () => {
-    if (!coords) return;
+    if (!coords && !mahalleKoy.trim()) {
+      alert("Lütfen en az bir mahalle/köy adı girin veya haritadan konum seçin.");
+      return;
+    }
+
     setIsSaving(true);
     try {
+      const finalAddress = formatAddress({
+        mahalleKoy,
+        sokakCadde,
+        binaKapiNo,
+        adresTarifi,
+        coords: coords || null,
+      });
+
       onSubmit({
-        latitude: coords.lat,
-        longitude: coords.lng,
-        auto_address: autoAddress,
-        address_note: addressNote,
+        latitude: coords?.lat || 0,
+        longitude: coords?.lng || 0,
+        auto_address: finalAddress,
+        address_note: adresTarifi,
       });
     } finally {
       if (isMountedRef.current) setIsSaving(false);
     }
-  }, [coords, autoAddress, addressNote, onSubmit]);
+  }, [coords, mahalleKoy, sokakCadde, binaKapiNo, adresTarifi, onSubmit]);
 
-  // DÜZELTME: accuracy > 200m ise kaydet butonu kilitlenir
-  // Kullanıcı yanlış şehirdeki konumu kazara kaydetmesin
-  const accuracyTooLow = accuracyM !== null && accuracyM > 200;
   const canSave = useMemo(
-    () => coords !== null && autoAddress.trim().length > 0 && !accuracyTooLow,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [coords, autoAddress, accuracyTooLow]
+    () => (coords !== null || mahalleKoy.trim().length > 0),
+    [coords, mahalleKoy]
   );
 
-  const handleRelocate = useCallback(() => fetchLocation(), [fetchLocation]);
+  const handleCopyCoordinates = () => {
+    if (!coords) return;
+    const txt = `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`;
+    navigator.clipboard?.writeText(txt);
+    setCopiedCoords(true);
+    setTimeout(() => setCopiedCoords(false), 2000);
+  };
 
-  const openAppSettings = useCallback(async () => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await Geolocation.requestPermissions({ permissions: ["location"] });
-      } catch { /* ignore */ }
-    }
-    fetchLocation();
-  }, [fetchLocation]);
-
-  // ─── Loading UI yardımcıları ────────────────────────────────
   const isLoading = locationStatus === "last_known" || locationStatus === "refining";
   const loadingLabel = locationStatus === "last_known"
     ? "Son bilinen konum alındı, rafine ediliyor..."
     : "Yüksek hassasiyetli GPS bekleniyor...";
-  const loadingSubLabel = locationStatus === "last_known"
-    ? "GPS + Wi-Fi + Hücre kulesi verisi birleştiriliyor"
-    : "GPS + Wi-Fi + Hücre kulesi verisi birleştiriliyor";
 
-  // ─── RENDER ─────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full w-full bg-slate-50 dark:bg-slate-950 overflow-hidden relative">
 
-      {/* Üst Bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 z-20">
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition active:scale-95"
-        >
-          <X className="h-5 w-5" />
-        </button>
-        <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-sky-700 dark:text-sky-400" />
-          Pin ile Adres Konumu Seç
-        </h2>
-        <div className="w-8" />
+      {/* ── Üst Bar: Arama / Koordinat / WhatsApp Link Girişi ── */}
+      <div className="flex flex-col bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 z-20 shadow-xs">
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition active:scale-95"
+            title="Kapat"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+            <Compass className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+            Net Konum & Kapı Numarası Seçimi
+          </h2>
+          <button
+            onClick={toggleMapLayer}
+            className={`px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition border ${
+              mapLayer === "hybrid"
+                ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700"
+            }`}
+            title="Uydu / Sokak Katmanı Değiştir"
+          >
+            <Layers className="h-3 w-3" />
+            {mapLayer === "hybrid" ? "🛰️ Uydu" : "🗺️ Sokak"}
+          </button>
+        </div>
+
+        {/* Arama & Yapıştırma Çubuğu */}
+        <div className="px-3 pb-2.5 flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSearchOrCoordinate(searchQuery);
+                }
+              }}
+              placeholder="Adres ara, koordinat (37.19, 40.58) veya link yapıştır..."
+              className="w-full pl-8 pr-8 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-2 p-0.5 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleSearchOrCoordinate(searchQuery)}
+            disabled={!searchQuery.trim() || isSearching}
+            className="px-3 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shrink-0"
+          >
+            {isSearching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Bul"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handlePasteClipboard}
+            className="px-2.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center gap-1 shrink-0"
+            title="Panodaki WhatsApp konumu / Google Maps linkini yapıştır"
+          >
+            <Clipboard className="h-3.5 w-3.5" />
+            Yapıştır
+          </button>
+        </div>
       </div>
 
-      {/* Harita */}
-      <div className="relative flex-1 min-h-0" style={{ minHeight: isFormExpanded ? "45%" : "75%" }}>
+      {/* ── Harita Bölgesi ── */}
+      <div className="relative flex-1 min-h-0" style={{ minHeight: isFormExpanded ? "38%" : "80%" }}>
         <div
           ref={mapContainerRef}
           className="absolute inset-0 z-0"
           style={{ touchAction: "manipulation" }}
         />
 
-        {/* ── GPS Yükleniyor Overlay ──────────────────────── */}
+        {/* GPS Yükleniyor Bildirimi */}
         {isLoading && (
-          <div className="absolute inset-0 z-10 flex items-end justify-center pb-8 pointer-events-none">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl px-5 py-4 flex items-center gap-3 shadow-lg border border-slate-200 dark:border-slate-700 mx-4 w-full max-w-xs">
-              {/* Sol: spinner veya checkmark */}
-              <div className="shrink-0">
-                {locationStatus === "last_known" ? (
-                  /* Son konum snap edildi — küçük sarı pulse */
-                  <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center relative">
-                    <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                    <span className="absolute inset-0 rounded-full animate-ping bg-amber-300/50" />
-                  </div>
-                ) : (
-                  /* Refining — mavi spinner */
-                  <div className="h-8 w-8 rounded-full bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center">
-                    <Loader2 className="h-4 w-4 text-sky-700 dark:text-sky-400 animate-spin" />
-                  </div>
-                )}
-              </div>
-              {/* Sağ: metin */}
+          <div className="absolute inset-0 z-10 flex items-end justify-center pb-6 pointer-events-none">
+            <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xs rounded-2xl px-4 py-3 flex items-center gap-3 shadow-lg border border-slate-200 dark:border-slate-700 mx-4 w-full max-w-xs animate-slide-up">
+              <Loader2 className="h-5 w-5 text-sky-600 animate-spin shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-tight">{loadingLabel}</p>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 leading-tight">{loadingSubLabel}</p>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{loadingLabel}</p>
+                <p className="text-[10px] text-slate-400">Pini çatının veya kapının üzerine sürükleyebilirsiniz</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── İzin / Hata Overlay (konum yokken) ─────────── */}
+        {/* İzin / Hata Kartı */}
         {(locationStatus === "denied" || locationStatus === "error") && !coords && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-6">
-            <div className="bg-white dark:bg-slate-800 rounded-xl px-5 py-5 flex flex-col items-center gap-4 shadow-sm border border-slate-200 dark:border-slate-700 max-w-xs w-full">
-              <div className="h-12 w-12 rounded-full bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-              </div>
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 text-center leading-relaxed">
+            <div className="bg-white dark:bg-slate-800 rounded-xl px-5 py-5 flex flex-col items-center gap-3 shadow-sm border border-slate-200 dark:border-slate-700 max-w-xs w-full">
+              <AlertTriangle className="h-8 w-8 text-amber-600" />
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 text-center">
                 {locationError}
               </p>
-              <div className="flex gap-2 w-full">
-                {locationStatus === "denied" && (
-                  <button
-                    onClick={openAppSettings}
-                    className="flex-1 py-2.5 bg-sky-700 hover:bg-sky-800 text-white rounded-xl text-xs font-bold transition active:scale-95 flex items-center justify-center gap-1.5"
-                  >
-                    <Settings className="h-3.5 w-3.5" />
-                    İzin Ver
-                  </button>
-                )}
-                <button
-                  onClick={fetchLocation}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition active:scale-95 flex items-center justify-center gap-1.5"
-                >
-                  <Navigation className="h-3.5 w-3.5" />
-                  Tekrar Dene
-                </button>
-              </div>
+              <button
+                onClick={fetchLocation}
+                className="w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+              >
+                <Navigation className="h-3.5 w-3.5" />
+                Tekrar Dene
+              </button>
             </div>
           </div>
         )}
 
-        {/* ── Konumuma Dön Butonu ──────────────────────────── */}
+        {/* Konumuma Dön Düğmesi */}
         {coords && !isLoading && (
           <button
-            onClick={handleRelocate}
-            className="absolute top-3 right-3 z-10 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center text-sky-700 dark:text-sky-400 transition active:scale-95 hover:bg-sky-50 dark:hover:bg-slate-700"
-            title="Konumumu Güncelle"
+            onClick={fetchLocation}
+            className="absolute top-3 right-3 z-10 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 flex items-center justify-center text-sky-600 dark:text-sky-400 transition active:scale-95 hover:bg-sky-50"
+            title="GPS Konumuma Git"
           >
             <LocateFixed className="h-5 w-5" />
           </button>
         )}
 
-        {/* ── Koordinat + Hassasiyet Chip ──────────────────── */}
+        {/* Koordinat & Hassasiyet Etiketi */}
         {coords && (
-          <div className="absolute top-3 left-3 z-10 flex flex-col gap-1">
-            <div className="bg-slate-900/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-[10px] font-mono tracking-tight">
-              {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
+          <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 pointer-events-auto">
+            <div className="bg-slate-900/85 backdrop-blur-xs text-white px-2.5 py-1 rounded-lg text-[10px] font-mono flex items-center gap-1.5 shadow-sm">
+              <MapPin className="h-3 w-3 text-emerald-400" />
+              <span>{coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}</span>
             </div>
             {accuracyM !== null && (
-              <div className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold backdrop-blur-sm ${
-                accuracyM <= 10
+              <div className={`px-2 py-0.5 rounded-lg text-[9px] font-bold backdrop-blur-xs w-fit ${
+                accuracyM <= 15
                   ? "bg-emerald-600/90 text-white"
                   : accuracyM <= 50
                   ? "bg-sky-600/90 text-white"
-                  : accuracyM <= 200
-                  ? "bg-amber-500/90 text-white"
-                  : "bg-rose-600/90 text-white animate-pulse" // >200m — UYARI
+                  : "bg-amber-500/90 text-white"
               }`}>
-                ±{Math.round(accuracyM)}m {accuracyM > 200 ? "— KONUM HATALI OLABIİR" : "hassasiyet"}
+                ±{Math.round(accuracyM)}m hassasiyet
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Form (Bottom Sheet) */}
+      {/* ── Form (Bottom Sheet: Ayrıntılı Net Adres Alanları) ── */}
       <div
         className={`bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 transition-all duration-300 overflow-y-auto shrink-0 ${
-          isFormExpanded ? "max-h-[55%]" : "max-h-14"
+          isFormExpanded ? "max-h-[62%]" : "max-h-12"
         }`}
       >
         <button
           onClick={() => setIsFormExpanded(!isFormExpanded)}
-          className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 transition active:bg-slate-100"
+          className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 transition active:bg-slate-100"
         >
           <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-sky-700 dark:text-sky-400" />
-            Adres Bilgisi
+            <Building2 className="h-4 w-4 text-sky-600" />
+            Adres & Kapı Numarası Detayları
+            {reverseGeoLoading && <Loader2 className="inline h-3 w-3 animate-spin text-sky-600" />}
           </span>
-          {isFormExpanded
-            ? <ChevronDown className="h-4 w-4 text-slate-400" />
-            : <ChevronUp className="h-4 w-4 text-slate-400" />}
+          {isFormExpanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronUp className="h-4 w-4 text-slate-400" />}
         </button>
 
         {isFormExpanded && (
-          <div className="p-4 space-y-3.5">
-            {/* İl/İlçe/Sokak */}
+          <div className="p-4 space-y-3">
+
+            {/* 1. Bölge (İl / İlçe / Mahalle / Köy) */}
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">
-                İl / İlçe / Sokak
-                {reverseGeoLoading && <Loader2 className="inline h-3 w-3 ml-1.5 animate-spin text-sky-600" />}
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                İl / İlçe / Mahalle veya Köy Adı
               </label>
-              <textarea
-                value={autoAddress}
-                onChange={(e) => setAutoAddress(e.target.value)}
-                rows={2}
-                placeholder="GPS konumu alındığında otomatik dolacak..."
-                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-700 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 resize-none transition"
+              <input
+                type="text"
+                value={mahalleKoy}
+                onChange={(e) => setMahalleKoy(e.target.value)}
+                placeholder="Örn: Mardin / Kızıltepe / Taşyapı Köyü"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
             </div>
 
-            {/* Adres Detayı */}
+            {/* 2. Cadde / Sokak ve Kapı No (Yan Yana) */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                  Cadde / Sokak / Mevki
+                </label>
+                <input
+                  type="text"
+                  value={sokakCadde}
+                  onChange={(e) => setSokakCadde(e.target.value)}
+                  placeholder="Örn: Atatürk Cad. / 120. Sok."
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                  Bina No / Kapı / Daire
+                </label>
+                <input
+                  type="text"
+                  value={binaKapiNo}
+                  onChange={(e) => setBinaKapiNo(e.target.value)}
+                  placeholder="Örn: No: 14 Kat: 2 D: 5"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+            </div>
+
+            {/* 3. Bina Tarifi / Açık Not */}
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide flex items-center gap-1">
-                <StickyNote className="h-3 w-3" /> Adres Detayı
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1 flex items-center gap-1">
+                <StickyNote className="h-3 w-3 text-slate-400" />
+                Adres Tarifi / Bina Tanımı (İsteğe Bağlı)
               </label>
               <textarea
-                value={addressNote}
-                onChange={(e) => setAddressNote(e.target.value)}
+                value={adresTarifi}
+                onChange={(e) => setAdresTarifi(e.target.value)}
                 rows={2}
-                placeholder="Örn: Yıldız Apt. B Blok Kat: 3 Daire: 7 (Market karşısı)..."
-                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-700 dark:text-slate-100 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500 resize-none transition"
+                placeholder="Örn: Köy camisi yanı, yeşil demir kapılı 2 katlı müstakil ev / A101 market üstü..."
+                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
               />
             </div>
 
-            {/* Düşük Hassasiyet / Fallback Uyarısı */}
-            {locationError && coords && (
-              <p className={`text-[10px] flex items-start gap-1.5 font-medium px-3 py-2 rounded-lg border ${
-                accuracyTooLow
-                  ? "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border-rose-300 dark:border-rose-800"
-                  : "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
-              }`}>
-                <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-                {locationError}
-              </p>
+            {/* 4. Koordinat & Navigasyon Bilgi Kartı */}
+            {coords && (
+              <div className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300 truncate">
+                    {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleCopyCoordinates}
+                    className="px-2 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-200 flex items-center gap-1 hover:bg-slate-100"
+                  >
+                    {copiedCoords ? <Check className="h-3 w-3 text-emerald-600" /> : <Clipboard className="h-3 w-3" />}
+                    {copiedCoords ? "Kopyalandı" : "Kopyala"}
+                  </button>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2 py-1 bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-700 rounded-lg text-[10px] font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1 hover:bg-sky-100"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Test Et
+                  </a>
+                </div>
+              </div>
             )}
 
-            {/* Accuracy çok düşükse kaydet kilidini açıkla */}
-            {accuracyTooLow && coords && (
-              <p className="text-[10px] text-rose-600 font-semibold text-center">
-                GPS kalibrasyonu bekleniyor... Tekrar deneyin veya dışarıya çıkın.
-              </p>
-            )}
-
-            {/* Kaydet */}
+            {/* Kaydet & Aktar Butonu */}
             <button
               onClick={handleSubmit}
               disabled={!canSave || isSaving}
-              className={`w-full py-3.5 rounded-xl text-sm font-bold transition active:scale-[0.98] flex items-center justify-center gap-2 ${
+              className={`w-full py-3.5 rounded-xl text-xs font-bold transition active:scale-[0.98] flex items-center justify-center gap-2 ${
                 canSave && !isSaving
-                  ? "bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500 text-white shadow-sm cursor-pointer"
+                  ? "bg-sky-600 hover:bg-sky-700 text-white shadow-sm cursor-pointer"
                   : "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
               }`}
             >
-              {isSaving
-                ? <><Loader2 className="h-4 w-4 animate-spin" />Aktarılıyor...</>
-                : accuracyTooLow
-                ? <><AlertTriangle className="h-4 w-4" />Konum Güvenilir Değil — Tekrar Dene</>
-                : <><Save className="h-4 w-4" />Adresi Aktar</>
-              }
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Kaydediliyor...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Net Adresi Müşteri Formuna Aktar
+                </>
+              )}
             </button>
 
-            <div style={{ height: "env(safe-area-inset-bottom, 16px)" }} />
+            <div style={{ height: "env(safe-area-inset-bottom, 12px)" }} />
           </div>
         )}
       </div>

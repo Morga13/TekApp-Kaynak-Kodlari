@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { getMusteriCariOzet, saveTahsilat as localSaveTahsilat } from "../utils/cari";
 import { formatDateDDMMYYYY } from "../utils/date";
+import { getMapsNavigationUrl } from "../utils/location";
 
 interface MusteriDetayProps {
   musteriId: number;
@@ -344,7 +345,7 @@ export default function MusteriDetay({
                 <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
                 <span className="flex-1 line-clamp-2">{musteri.adres}</span>
                 <button
-                  onClick={() => safeOpenUrl(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(musteri.adres)}`)}
+                  onClick={() => safeOpenUrl(getMapsNavigationUrl(musteri.adres))}
                   className="text-sky-300 hover:underline text-[11px] shrink-0 font-medium ml-1"
                 >
                   Yol Tarifi

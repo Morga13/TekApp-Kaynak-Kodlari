@@ -1,11 +1,12 @@
 import React, { useState, Suspense } from "react";
 import { Musteri, Bakim } from "../types";
-import { Search, Plus, Phone, MapPin, FileText, Edit2, Trash2, Eye, X, Smartphone, MessageSquare, LocateFixed, Loader2, Wallet, Map as MapIcon } from "lucide-react";
+import { Search, Plus, Phone, MapPin, FileText, Edit2, Trash2, Eye, X, Smartphone, MessageSquare, LocateFixed, Loader2, Wallet, Map as MapIcon, Navigation } from "lucide-react";
 import { Contacts } from "@capacitor-community/contacts";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from '@capacitor/core';
 import { getMusteriCariOzet, saveTahsilat } from "../utils/cari";
 import type { KonumPayload } from "./KonumKaydet";
+import { getMapsNavigationUrl } from "../utils/location";
 
 // Leaflet sadece kullanıcı "Haritadan Seç" butonuna basınca yüklenir
 const KonumKaydet = React.lazy(() => import("./KonumKaydet"));
@@ -396,12 +397,12 @@ export default function MusteriListesi({
                 {m.adres && (
                   <button
                     onClick={() => {
-                      safeOpenUrl(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.adres)}`);
+                      safeOpenUrl(getMapsNavigationUrl(m.adres));
                     }}
-                    className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg transition"
-                    title="Google Maps Yol Tarifi"
+                    className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-sky-600 hover:bg-sky-50 rounded-lg transition active:scale-95"
+                    title="Haritada Aç / Yol Tarifi"
                   >
-                    <MapPin className="h-4 w-4" />
+                    <Navigation className="h-4 w-4" />
                   </button>
                 )}
                 <button
@@ -735,12 +736,9 @@ export default function MusteriListesi({
           }>
             <div className="fixed inset-0 z-[60] bg-white dark:bg-slate-950">
               <KonumKaydet
+                initialData={{ auto_address: adres }}
                 onSubmit={(payload: KonumPayload) => {
-                  const detayParts = [
-                    payload.auto_address,
-                    payload.address_note && `${payload.address_note}`,
-                  ].filter(Boolean);
-                  setAdres(detayParts.join(" - "));
+                  setAdres(payload.auto_address);
                   setKonumKaydetOpen(false);
                 }}
                 onClose={() => setKonumKaydetOpen(false)}

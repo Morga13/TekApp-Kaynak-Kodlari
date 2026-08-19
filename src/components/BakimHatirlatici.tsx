@@ -3,6 +3,7 @@ import { Musteri, Bakim } from "../types";
 import { Bell, Calendar, Phone, MapPin, Wrench, MessageSquare, Search, AlertCircle, Clock, CheckCircle2 } from "lucide-react";
 import { Capacitor } from '@capacitor/core';
 import { formatDateDDMMYYYY } from "../utils/date";
+import { getMapsNavigationUrl } from "../utils/location";
 
 interface BakimHatirlaticiProps {
   musteriler: Musteri[];
@@ -96,7 +97,7 @@ export default function BakimHatirlatici({
       alert("Müşterinin adres bilgisi bulunmuyor.");
       return;
     }
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(adres)}`;
+    const url = getMapsNavigationUrl(adres);
     if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
       window.location.href = url;
     } else {
