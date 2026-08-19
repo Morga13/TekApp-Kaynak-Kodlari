@@ -60,10 +60,10 @@ export const COMPOSITE_PARTS_MAPPING: Record<string, string[]> = {
 // 2. STOK UYARI EŞİKLERİ
 // ─────────────────────────────────────────────────────────────────
 
-/** Filtre veya membran içeriyorsa yüksek eşik grubuna girer */
+/** Filtre, membran, set veya takım içeriyorsa yüksek eşik grubuna girer */
 export function isHighThresholdPart(ad: string): boolean {
   const n = ad.toLowerCase().trim();
-  return n.includes("filtre") || n.includes("membran");
+  return n.includes("filtre") || n.includes("membran") || n.includes("set") || n.includes("takım") || n.includes("takim");
 }
 
 /** Stok durumuna göre renk tonu döner */
