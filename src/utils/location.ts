@@ -172,3 +172,20 @@ export function parseStoredAddress(storedAddress: string): AddressComponents {
     coords: coords || undefined,
   };
 }
+
+/**
+ * Telefon numarasını standartlaştırır (boşluk, parantez, tire, ülke kodu temizlenir).
+ * Örn: "0532 123 45 67" -> "5321234567"
+ *      "+90 532 123 4567" -> "5321234567"
+ *      "5321234567" -> "5321234567"
+ */
+export function normalizePhoneNumber(phone?: string): string {
+  if (!phone || typeof phone !== 'string') return '';
+  let digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('90') && digits.length === 12) {
+    digits = digits.substring(2);
+  } else if (digits.startsWith('0') && digits.length === 11) {
+    digits = digits.substring(1);
+  }
+  return digits;
+}

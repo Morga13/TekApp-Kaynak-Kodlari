@@ -6,7 +6,7 @@ import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from '@capacitor/core';
 import { getMusteriCariOzet, saveTahsilat } from "../utils/cari";
 import type { KonumPayload } from "./KonumKaydet";
-import { getMapsNavigationUrl } from "../utils/location";
+import { getMapsNavigationUrl, normalizePhoneNumber } from "../utils/location";
 
 // Leaflet sadece kullanıcı "Haritadan Seç" butonuna basınca yüklenir
 const KonumKaydet = React.lazy(() => import("./KonumKaydet"));
@@ -236,20 +236,39 @@ export default function MusteriListesi({
 
     // Yerel duplikasyon kontrolü
     const isNew = !editId;
+    const cleanAd = ad.trim().toLowerCase();
+    const cleanTel = normalizePhoneNumber(telefon);
+
     if (isNew) {
-      const exists = musteriler.some(
-        (existing) => existing.ad.trim().toLowerCase() === ad.trim().toLowerCase()
+      // 1. İsim kontrolü
+      const nameExists = musteriler.some(
+        (existing) => existing.ad.trim().toLowerCase() === cleanAd
       );
-      if (exists) {
+      if (nameExists) {
         setError(`"${ad.trim()}" isimli bir müşteri zaten kayıtlı!`);
         return;
       }
     } else {
-      const exists = musteriler.some(
-        (existing) => existing.id !== editId && existing.ad.trim().toLowerCase() === ad.trim().toLowerCase()
+      // 1. İsim kontrolü (farklı ID)
+      const nameExists = musteriler.some(
+        (existing) => existing.id !== editId && existing.ad.trim().toLowerCase() === cleanAd
       );
-      if (exists) {
+      if (nameExists) {
         setError(`"${ad.trim()}" isimli bir başka müşteri zaten kayıtlı!`);
+        return;
+      }
+    }
+
+    // 2. Telefon numarası kontrolü (numara girilmişse)
+    if (cleanTel && cleanTel.length >= 7) {
+      const phoneMatch = musteriler.find((existing) => {
+        if (!isNew && existing.id === editId) return false;
+        const existingTel = normalizePhoneNumber(existing.telefon);
+        return existingTel && existingTel === cleanTel;
+      });
+
+      if (phoneMatch) {
+        setError(`Bu numara "${phoneMatch.ad}" ismiyle zaten kayıtlı!`);
         return;
       }
     }
@@ -507,7 +526,10 @@ export default function MusteriListesi({
                   type="tel"
                   placeholder="Örn: 0532 123 4567"
                   value={telefon}
-                  onChange={(e) => setTelefon(e.target.value)}
+                  onChange={(e) => {
+                    setTelefon(e.target.value);
+                    if (error) setError(null);
+                  }}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
                 />
               </div>
